@@ -1754,6 +1754,8 @@ impl App {
     fn action_clone_part(&mut self) -> Option<AppEvents> {
         let item_id = self.get_active_panel_data().item(self.view.get_active_panel_selection(), &self.store).id?;
         let item = self.store.part_by_id(&item_id)?;
+        let is_project = item.metadata.types.contains(&crate::store::ObjectType::Project);
+
         let mut new_item = item.clone();
         let new_id = self.make_new_id(&item.metadata.name);
         let new_name = [&item.metadata.name, " - clone"].join("");
@@ -1764,6 +1766,20 @@ impl App {
 
         self.store.store_part(&mut new_item);
         self.store.insert_part_to_cache(new_item);
+
+        if is_project {
+            // Clone requirements
+            for r in self.store.count_by_project(&item_id) {
+                let entry = LedgerEntry {
+                    t: Local::now().fixed_offset(),
+                    count: r.required(),
+                    part: Rc::clone(r.part()),
+                    ev: LedgerEvent::RequireInProject(Rc::clone(&new_id)),
+                };
+                self.store.record_event(&entry);
+                self.store.update_count_cache(&entry);
+            }
+        }
 
         Some(AppEvents::RELOAD_DATA_SELECT(new_name))
     }
