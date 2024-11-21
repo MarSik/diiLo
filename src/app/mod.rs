@@ -1,13 +1,7 @@
-use std::{
-    default, env,
-    mem::replace,
-    ops::Deref,
-    os,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{mem::replace, rc::Rc};
 
-use chrono::{DateTime, Local};
+use chrono::Local;
+use errs::AppError;
 use log::{debug, error, info};
 use model::{ActionDescriptor, Model, PanelContent, PanelData, PanelItem};
 use tui_input::Input;
@@ -16,6 +10,7 @@ use view::{CreateMode, DialogState, View};
 use crate::store::{LedgerEntry, LedgerEvent, Part, PartId, PartMetadata, Store};
 
 mod caching_panel_data;
+pub mod errs;
 mod kbd;
 mod model;
 mod panel_labels;
@@ -43,37 +38,35 @@ pub struct App {
 
 #[derive(Debug, PartialEq)]
 pub enum AppEvents {
-    NOP,
+    Nop,
     // Redraw UI
-    REDRAW,
+    Redraw,
     // Reload data model
-    RELOAD_DATA,
+    ReloadData,
     // Reload data model and then select item on active panel
-    RELOAD_DATA_SELECT(String),
+    ReloadDataSelect(String),
     // Select
-    SELECT(String),
+    Select(String),
     // Start editor and reload after edit is complete
-    EDIT(PartId),
-    // Report error
-    ERROR,
+    Edit(PartId),
     // Quit application
-    QUIT,
+    Quit,
 }
 
 impl AppEvents {
     pub fn or(self, other: AppEvents) -> AppEvents {
         match self {
-            AppEvents::NOP => other,
+            AppEvents::Nop => other,
             other => other,
         }
     }
 
     pub fn select_by_name(self, name: &str) -> AppEvents {
         match self {
-            AppEvents::RELOAD_DATA | AppEvents::RELOAD_DATA_SELECT(_) => {
-                AppEvents::RELOAD_DATA_SELECT(name.to_string())
+            AppEvents::ReloadData | AppEvents::ReloadDataSelect(_) => {
+                AppEvents::ReloadDataSelect(name.to_string())
             }
-            _ => AppEvents::SELECT(name.to_string()),
+            _ => AppEvents::Select(name.to_string()),
         }
     }
 }
@@ -288,7 +281,9 @@ impl App {
             (p, PanelContent::PartsWithLabels) if p.contains_parts() => ActionVariant::RemoveLabel,
 
             (PanelContent::PartsInLocation, PanelContent::Projects) => ActionVariant::SolderPart,
-            (PanelContent::PartsInLocation, PanelContent::PartsInProjects) => ActionVariant::SolderPart,
+            (PanelContent::PartsInLocation, PanelContent::PartsInProjects) => {
+                ActionVariant::SolderPart
+            }
 
             (PanelContent::Parts, _) => ActionVariant::None,
             (PanelContent::Locations, _) => ActionVariant::None,
@@ -332,24 +327,24 @@ impl App {
                 // using the std::memory::replace and a temporary "empty" value
                 let old = replace(&mut self.model.panel_a, Box::new(TemporaryEmptyPanel()));
                 let next = old.enter(self.view.panel_a.selected, &self.store);
-                replace(&mut self.model.panel_a, next.0);
+                self.model.panel_a = next.0;
                 self.view.panel_a.selected = next.1;
-                AppEvents::REDRAW
+                AppEvents::Redraw
             }
             view::Hot::PanelB => {
                 // Replacing a non-copy structure member in a mutable self requires a workaround
                 // using the std::memory::replace and a temporary "empty" value
                 let old = replace(&mut self.model.panel_b, Box::new(TemporaryEmptyPanel()));
                 let next = old.enter(self.view.panel_b.selected, &self.store);
-                replace(&mut self.model.panel_b, next.0);
+                self.model.panel_b = next.0;
                 self.view.panel_b.selected = next.1;
-                AppEvents::REDRAW
+                AppEvents::Redraw
             }
-            _ => AppEvents::REDRAW,
+            _ => AppEvents::Redraw,
         }
     }
 
-    pub fn finish_action(&mut self) -> AppEvents {
+    pub fn finish_action(&mut self) -> anyhow::Result<AppEvents> {
         match self.view.hot() {
             view::Hot::ActionCountDialog => {
                 self.view.hide_action_dialog();
@@ -366,74 +361,45 @@ impl App {
 
                 match self.view.action_count_dialog_action {
                     ActionVariant::AddLabel => {
-                        if let Some(value) = self.finish_action_add_label(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_add_label(&source, &destination);
                     }
                     ActionVariant::RemoveLabel => {
-                        if let Some(value) = self.finish_action_remove_label(&source, &destination)
-                        {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_remove_label(&source, &destination);
                     }
                     ActionVariant::RequirePart => {
-                        if let Some(value) = self.finish_action_require(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_require(&source, &destination);
                     }
                     ActionVariant::OrderPart => {
-                        if let Some(value) = self.finish_action_order(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_order(&source, &destination);
                     }
                     ActionVariant::OrderPartLocal => {
-                        if let Some(value) = self.finish_action_order(&source, &source) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_order(&source, &source);
                     }
                     ActionVariant::MovePart => {
-                        if let Some(value) = self.finish_action_move(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_move(&source, &destination);
                     }
                     ActionVariant::DeliverPart => {
-                        if let Some(value) = self.finish_action_deliver(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_deliver(&source, &destination);
                     }
                     ActionVariant::SolderPart => {
-                        if let Some(value) = self.finish_action_solder(&source, &destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_solder(&source, &destination);
                     }
                     ActionVariant::UnsolderPart => {
-                        if let Some(value) = self.finish_action_unsolder(source, destination) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_unsolder(source, destination);
                     }
                     ActionVariant::RequirePartLocal => {
-                        if let Some(value) = self.finish_action_require_local(source.as_ref()) {
-                            return value;
-                        }
-                        AppEvents::REDRAW
+                        return self.finish_action_require_local(source.as_ref());
                     }
-                    ActionVariant::Error => todo!(),
+                    ActionVariant::Error => Err(AppError::BadOperationContext.into()),
+
+                    // These two are called in different way, keep the todo here to catch errors
                     ActionVariant::CreatePart => todo!(),
                     ActionVariant::ClonePart => todo!(),
-                    _ => AppEvents::REDRAW,
+                    _ => Ok(AppEvents::Redraw),
                 }
             }
-            view::Hot::CreatePartDialog => AppEvents::REDRAW,
-            _ => AppEvents::REDRAW,
+            view::Hot::CreatePartDialog => Ok(AppEvents::Redraw),
+            _ => Ok(AppEvents::Redraw),
         }
     }
 
@@ -441,63 +407,85 @@ impl App {
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
+    ) -> anyhow::Result<AppEvents> {
         if let Some(source) = source
             .as_ref()
             .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
         {
-            let destination = destination.as_ref().and_then(|d| d.part().map(Rc::clone))?;
-            return Some(self.perform_add_label(&destination, source));
+            let destination = destination
+                .as_ref()
+                .and_then(|d| d.part().map(Rc::clone))
+                .ok_or(AppError::BadOperationContext)?;
+            return self.perform_add_label(&destination, source);
         } else if let Some(destination) = destination
             .as_ref()
             .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
         {
-            let source = source.as_ref().and_then(|d| d.part().map(Rc::clone))?;
-            return Some(self.perform_add_label(&source, destination));
+            let source = source
+                .as_ref()
+                .and_then(|d| d.part().map(Rc::clone))
+                .ok_or(AppError::BadOperationContext)?;
+            return self.perform_add_label(&source, destination);
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
     fn finish_action_remove_label(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
+    ) -> anyhow::Result<AppEvents> {
         if let Some(source) = source
             .as_ref()
             .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
         {
-            let destination = destination.as_ref().and_then(|d| d.part().map(Rc::clone))?;
+            let destination = destination
+                .as_ref()
+                .and_then(|d| d.part().map(Rc::clone))
+                .ok_or(AppError::BadOperationContext)?;
             return self
                 .perform_remove_label(&destination, source)
-                .or(Some(AppEvents::REDRAW));
+                .or(Ok(AppEvents::Redraw));
         } else if let Some(destination) = destination
             .as_ref()
             .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
         {
-            let source = source.as_ref().and_then(|d| d.part().map(Rc::clone))?;
+            let source = source
+                .as_ref()
+                .and_then(|d| d.part().map(Rc::clone))
+                .ok_or(AppError::BadOperationContext)?;
             return self
                 .perform_remove_label(&source, destination)
-                .or(Some(AppEvents::REDRAW));
+                .or(Ok(AppEvents::Redraw));
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
     fn finish_action_require(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
         let (destination, ev) = if let Some(destination) = destination
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone)) {
-                (Rc::clone(&destination), LedgerEvent::RequireIn(destination))
-        } else if let Some(project_id) = destination.as_ref().and_then(|d| d.project().map(Rc::clone)) {
-            (Rc::clone(&project_id), LedgerEvent::RequireInProject(project_id))
+            .and_then(|d| d.location().map(Rc::clone))
+        {
+            (Rc::clone(&destination), LedgerEvent::RequireIn(destination))
+        } else if let Some(project_id) = destination
+            .as_ref()
+            .and_then(|d| d.project().map(Rc::clone))
+        {
+            (
+                Rc::clone(&project_id),
+                LedgerEvent::RequireInProject(project_id),
+            )
         } else {
             self.update_status("Invalid requirement?!");
-            return Some(AppEvents::REDRAW);
+            return Ok(AppEvents::Redraw);
         };
 
         self.update_status(&format!(
@@ -512,21 +500,25 @@ impl App {
             ev: ev,
         };
 
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_to)?;
         self.store.update_count_cache(&event_to);
 
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_action_order(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.source().map(Rc::clone))?;
+            .and_then(|d| d.source().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
             "{} parts {} ordered from {}",
@@ -540,22 +532,29 @@ impl App {
             ev: LedgerEvent::OrderFrom(destination),
         };
 
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_to)?;
         self.store.update_count_cache(&event_to);
 
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_action_move(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
-        let source = source.as_ref().and_then(|d| d.location().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let source = source
+            .as_ref()
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))?;
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
             "{} parts {} moved from {} to {}",
@@ -575,25 +574,32 @@ impl App {
             ev: LedgerEvent::StoreTo(destination),
         };
 
-        self.store.record_event(&event_from);
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_from)?;
+        self.store.record_event(&event_to)?;
 
         self.store.update_count_cache(&event_from);
         self.store.update_count_cache(&event_to);
 
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_action_deliver(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
-        let source = source.as_ref().and_then(|d| d.source().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let source = source
+            .as_ref()
+            .and_then(|d| d.source().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))?;
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
             "{} parts {} delivered from {} to {}",
@@ -613,25 +619,32 @@ impl App {
             ev: LedgerEvent::StoreTo(destination),
         };
 
-        self.store.record_event(&event_from);
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_from)?;
+        self.store.record_event(&event_to)?;
 
         self.store.update_count_cache(&event_from);
         self.store.update_count_cache(&event_to);
 
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_action_solder(
         &mut self,
         source: &Option<ActionDescriptor>,
         destination: &Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
-        let source = source.as_ref().and_then(|d| d.location().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let source = source
+            .as_ref()
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.project().map(Rc::clone))?;
+            .and_then(|d| d.project().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
             "{} parts {} soldered from {} to {}",
@@ -651,23 +664,30 @@ impl App {
             ev: LedgerEvent::SolderTo(destination),
         };
 
-        self.store.record_event(&event_from);
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_from)?;
+        self.store.record_event(&event_to)?;
 
         self.store.update_count_cache(&event_from);
         self.store.update_count_cache(&event_to);
 
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_action_unsolder(
         &mut self,
         source: Option<ActionDescriptor>,
         destination: Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let part = source.as_ref().and_then(|s| s.part().map(Rc::clone))?;
-        let source = source.and_then(|d| d.project().map(Rc::clone))?;
-        let destination = destination.and_then(|d| d.location().map(Rc::clone))?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = source
+            .as_ref()
+            .and_then(|s| s.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let source = source
+            .and_then(|d| d.project().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let destination = destination
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
             "{} parts {} unsoldered from {} to {}",
@@ -688,16 +708,20 @@ impl App {
             ev: LedgerEvent::StoreTo(destination),
         };
 
-        self.store.record_event(&event_from);
-        self.store.record_event(&event_to);
+        self.store.record_event(&event_from)?;
+        self.store.record_event(&event_to)?;
 
         self.store.update_count_cache(&event_from);
         self.store.update_count_cache(&event_to);
 
-        return Some(AppEvents::RELOAD_DATA);
+        return Ok(AppEvents::ReloadData);
     }
 
-    fn perform_add_label(&mut self, part_id: &PartId, label: (String, String)) -> AppEvents {
+    fn perform_add_label(
+        &mut self,
+        part_id: &PartId,
+        label: (String, String),
+    ) -> anyhow::Result<AppEvents> {
         if let Some(part) = self.store.part_by_id(part_id) {
             let mut new_part = part.clone();
             new_part
@@ -710,20 +734,23 @@ impl App {
                 label.1.as_str(),
                 part.metadata.name
             ));
-            self.store.store_part(&mut new_part);
+            self.store.store_part(&mut new_part)?;
             self.store.insert_part_to_cache(new_part);
-            return AppEvents::RELOAD_DATA;
+            return Ok(AppEvents::ReloadData);
         }
 
-        AppEvents::NOP
+        Ok(AppEvents::Nop)
     }
 
     fn perform_remove_label(
         &mut self,
         part_id: &PartId,
         label: (String, String),
-    ) -> Option<AppEvents> {
-        let part = self.store.part_by_id(part_id)?;
+    ) -> anyhow::Result<AppEvents> {
+        let part = self
+            .store
+            .part_by_id(part_id)
+            .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
         let mut new_part = part.clone();
         let labels = new_part.metadata.labels.remove(&label.0);
         if let Some(vals) = labels {
@@ -739,87 +766,77 @@ impl App {
             label.1.as_str(),
             part.metadata.name
         ));
-        self.store.store_part(&mut new_part);
+        self.store.store_part(&mut new_part)?;
         self.store.insert_part_to_cache(new_part);
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
-    pub fn press_f9(&mut self) -> AppEvents {
+    pub fn press_f9(&mut self) -> Result<AppEvents, AppError> {
         let action = self.f9_action();
         self.interpret_action(action)
     }
 
-    pub fn press_f5(&mut self) -> AppEvents {
+    pub fn press_f5(&mut self) -> Result<AppEvents, AppError> {
         let action = self.f5_action();
         self.interpret_action(action)
     }
 
-    pub fn press_f6(&mut self) -> AppEvents {
+    pub fn press_f6(&mut self) -> Result<AppEvents, AppError> {
         let action = self.f6_action();
         self.interpret_action(action)
     }
 
-    fn interpret_action(&mut self, action: ActionVariant) -> AppEvents {
+    fn interpret_action(&mut self, action: ActionVariant) -> Result<AppEvents, AppError> {
         // Dual panel actions are ignored when both sides are not visible
         if action.dual_panel() && !self.view.layout.is_dual_panel() {
-            return AppEvents::NOP;
+            return Ok(AppEvents::Nop);
         }
 
         match action {
-            ActionVariant::None => AppEvents::NOP,
-            ActionVariant::Error => AppEvents::ERROR,
+            ActionVariant::None => return Ok(AppEvents::Nop),
+            ActionVariant::Error => return Err(AppError::BadOperationContext),
             ActionVariant::MovePart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::AddLabel => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::RemoveLabel => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::CreatePart => todo!(),
             ActionVariant::ClonePart => {
-                if let Some(ev) = self.action_clone_part() {
-                    return ev;
-                }
-                AppEvents::REDRAW
-            },
+                return self.action_clone_part();
+            }
             ActionVariant::RequirePart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::OrderPart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::DeliverPart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::SolderPart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::UnsolderPart => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::OrderPartLocal => {
                 self.action_dialog_common_move(action);
-                AppEvents::REDRAW
             }
             ActionVariant::RequirePartLocal => {
                 self.prepare_require_part_local(action);
-                AppEvents::REDRAW
             }
             ActionVariant::Delete => {
                 self.prepare_delete();
-                AppEvents::REDRAW
             }
-        }
+        };
+
+        // The code above just opens dialogs and does not manipulate data
+        // Redraw screen
+        Ok(AppEvents::Redraw)
     }
 
     fn prepare_require_part_local(&mut self, action: ActionVariant) -> Option<AppEvents> {
@@ -840,7 +857,7 @@ impl App {
 
         // show currently required count as prefilled value
         self.view.show_action_dialog(action, count);
-        Some(AppEvents::REDRAW)
+        Some(AppEvents::Redraw)
     }
 
     fn action_dialog_common_move(&mut self, action: ActionVariant) {
@@ -869,7 +886,7 @@ impl App {
         );
     }
 
-    fn press_f7(&mut self) -> AppEvents {
+    fn press_f7(&mut self) -> Result<AppEvents, AppError> {
         if self.get_active_panel_data().data_type().can_make() {
             self.view.create_name.reset();
             self.view.create_summary.reset();
@@ -878,10 +895,10 @@ impl App {
             self.view.create_dialog = DialogState::VISIBLE;
             self.view.create_save_into = None;
         }
-        AppEvents::REDRAW
+        Ok(AppEvents::Redraw)
     }
 
-    fn press_f2(&mut self) -> AppEvents {
+    fn press_f2(&mut self) -> Result<AppEvents, AppError> {
         let active = self.get_active_panel_data();
         if active.data_type().can_make() {
             let selection = self.view.get_active_panel_selection();
@@ -894,7 +911,7 @@ impl App {
             self.view.create_save_into = item.id;
             self.update_create_dialog_hints();
         }
-        AppEvents::REDRAW
+        Ok(AppEvents::Redraw)
     }
 
     fn update_create_dialog_hints(&mut self) {
@@ -977,7 +994,7 @@ impl App {
             .collect();
     }
 
-    fn press_f8(&mut self) -> AppEvents {
+    fn press_f8(&mut self) -> Result<AppEvents, AppError> {
         let action = self.f8_action();
         self.interpret_action(action)
     }
@@ -996,7 +1013,7 @@ impl App {
         }
     }
 
-    fn finish_create(&mut self) -> AppEvents {
+    fn finish_create(&mut self) -> anyhow::Result<AppEvents> {
         self.view.hide_create_dialog();
 
         // This was an edit of existing part, just update it and return
@@ -1005,95 +1022,67 @@ impl App {
                 let mut new_part = part.clone();
                 new_part.metadata.name = self.view.create_name.value().to_string();
                 new_part.metadata.summary = self.view.create_summary.value().to_string();
-                self.store.store_part(&mut new_part);
+                self.store.store_part(&mut new_part)?;
                 self.store.insert_part_to_cache(new_part);
-                return AppEvents::RELOAD_DATA;
+                return Ok(AppEvents::ReloadData);
             }
 
-            return AppEvents::RELOAD_DATA;
+            return Ok(AppEvents::ReloadData);
         }
 
         match self.get_active_panel_data().data_type() {
-            PanelContent::None => return AppEvents::REDRAW,
+            PanelContent::None => return Ok(AppEvents::Redraw),
             PanelContent::TypeSelection => todo!(),
             PanelContent::Parts => {
-                if let Some(value) = self.finish_create_part() {
-                    return value;
-                }
+                return self.finish_create_part();
             }
             PanelContent::Locations => {
-                if let Some(value) = self.finish_create_location() {
-                    return value;
-                }
+                return self.finish_create_location();
             }
             PanelContent::LocationOfParts => {
-                if let Some(value) = self.finish_create_location_for_part() {
-                    return value;
-                }
+                return self.finish_create_location_for_part();
             }
             PanelContent::PartsInLocation => {
-                if let Some(value) = self.finish_create_part_in_location() {
-                    return value;
-                }
+                return self.finish_create_part_in_location();
             }
             PanelContent::LabelKeys => {
-                if let Some(value) = self.finish_create_label_key() {
-                    return value;
-                }
+                return self.finish_create_label_key();
             }
             PanelContent::Labels => {
-                if let Some(value) = self.finish_create_label() {
-                    return value;
-                }
+                return self.finish_create_label();
             }
             PanelContent::PartsWithLabels => {
-                if let Some(value) = self.finish_create_part_w_label() {
-                    return value;
-                }
+                return self.finish_create_part_w_label();
             }
             PanelContent::Sources => {
-                if let Some(value) = self.finish_create_source() {
-                    return value;
-                }
+                return self.finish_create_source();
             }
             PanelContent::PartsFromSources => {
-                if let Some(value) = self.finish_create_part_in_source() {
-                    return value;
-                }
+                return self.finish_create_part_in_source();
             }
             PanelContent::PartsInOrders => {
-                if let Some(value) = self.finish_create_part_in_source() {
-                    return value;
-                }
+                return self.finish_create_part_in_source();
             }
             PanelContent::Projects => {
-                if let Some(value) = self.finish_create_project() {
-                    return value;
-                }
+                return self.finish_create_project();
             }
             PanelContent::PartsInProjects => {
-                if let Some(value) = self.finish_create_part_in_project() {
-                    return value;
-                }
+                return self.finish_create_part_in_project();
             }
         }
-
-        return AppEvents::REDRAW;
     }
 
-    fn finish_create_part(&mut self) -> Option<AppEvents> {
+    fn finish_create_part(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+            })?;
 
             self.update_status(&format!("Part {} was created.", part_id));
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1101,21 +1090,19 @@ impl App {
         }
     }
 
-    fn finish_create_location(&mut self) -> Option<AppEvents> {
+    fn finish_create_location(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata
-                        .types
-                        .insert(crate::store::ObjectType::Location);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata
+                    .types
+                    .insert(crate::store::ObjectType::Location);
+            })?;
 
             self.update_status(&format!("Location {} was created.", part_id));
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1123,14 +1110,17 @@ impl App {
         }
     }
 
-    fn finish_create_part_in_location(&mut self) -> Option<AppEvents> {
+    fn finish_create_part_in_location(&mut self) -> anyhow::Result<AppEvents> {
         let action_desc = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
         if let CreateMode::HINT(hint) = self.view.create_idx {
             if let Some(part_id) = &self.view.create_hints[hint].id {
-                let location = action_desc.location()?;
+                let location = action_desc
+                    .location()
+                    .ok_or(AppError::BadOperationContext)?;
 
                 // Update requirement to 1 if not set
                 let count = self.store.get_by_location(&part_id, &location);
@@ -1141,12 +1131,12 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireIn(location.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
                 self.store.show_empty_in_location(part_id, &location, true);
-                return Some(AppEvents::RELOAD_DATA_SELECT(
+                return Ok(AppEvents::ReloadDataSelect(
                     self.store
                         .part_by_id(&part_id)
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1154,11 +1144,9 @@ impl App {
             }
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+            })?;
 
             if let Some(location) = action_desc.location() {
                 // Update requirement to 1 if not set
@@ -1170,30 +1158,31 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireIn(location.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
                 self.store.show_empty_in_location(&part_id, &location, true);
             }
 
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
-    fn finish_create_location_for_part(&mut self) -> Option<AppEvents> {
+    fn finish_create_location_for_part(&mut self) -> anyhow::Result<AppEvents> {
         let action_desc = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
         if let CreateMode::HINT(hint) = self.view.create_idx {
             if let Some(location_id) = &self.view.create_hints[hint].id {
-                let part_id = action_desc.part()?;
+                let part_id = action_desc.part().ok_or(AppError::BadOperationContext)?;
 
                 // Update requirement to 1 if not set
                 let count = self.store.get_by_location(&part_id, &location_id);
@@ -1204,13 +1193,13 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireIn(location_id.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
                 self.store
                     .show_empty_in_location(part_id, &location_id, true);
-                return Some(AppEvents::RELOAD_DATA_SELECT(
+                return Ok(AppEvents::ReloadDataSelect(
                     self.store
                         .part_by_id(&part_id)
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1218,14 +1207,12 @@ impl App {
             }
         } else {
             // Enter on summary or name fields
-            let location_id = self
-                .create_object_from_dialog_data(|location| {
-                    location
-                        .metadata
-                        .types
-                        .insert(crate::store::ObjectType::Location);
-                })
-                .ok()?;
+            let location_id = self.create_object_from_dialog_data(|location| {
+                location
+                    .metadata
+                    .types
+                    .insert(crate::store::ObjectType::Location);
+            })?;
 
             if let Some(part_id) = action_desc.part() {
                 // Update requirement to 1 if not set
@@ -1237,7 +1224,7 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireIn(location_id.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
@@ -1245,27 +1232,26 @@ impl App {
                     .show_empty_in_location(&part_id, &location_id, true);
             }
 
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&location_id)
                     .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
-    fn finish_create_part_in_source(&mut self) -> Option<AppEvents> {
+    fn finish_create_part_in_source(&mut self) -> anyhow::Result<AppEvents> {
         let action_desc = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
         if let CreateMode::HINT(hint) = self.view.create_idx {
             if let Some(part_id) = &self.view.create_hints[hint].id {
-                let source = action_desc.source()?;
-                // Update order to 1 if not set
-                let count = self.store.get_by_source(&part_id, &source);
+                let source = action_desc.source().ok_or(AppError::BadOperationContext)?;
                 self.store.show_empty_in_source(part_id, &source, true);
-                return Some(AppEvents::RELOAD_DATA_SELECT(
+                return Ok(AppEvents::ReloadDataSelect(
                     self.store
                         .part_by_id(&part_id)
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1273,35 +1259,32 @@ impl App {
             }
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+            })?;
 
             if let Some(source) = action_desc.source() {
-                // Update order to 1 if not set
-                let count = self.store.get_by_source(&part_id, &source);
                 self.store.show_empty_in_source(&part_id, &source, true);
             }
 
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
-    fn finish_create_part_in_project(&mut self) -> Option<AppEvents> {
+    fn finish_create_part_in_project(&mut self) -> anyhow::Result<AppEvents> {
         let action_desc = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
         if let CreateMode::HINT(hint) = self.view.create_idx {
             if let Some(part_id) = &self.view.create_hints[hint].id {
-                let project_id = action_desc.project()?;
+                let project_id = action_desc.project().ok_or(AppError::BadOperationContext)?;
 
                 // Update order to 1 if not set
                 let count = self.store.get_by_project(&part_id, &project_id);
@@ -1312,12 +1295,12 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireInProject(project_id.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
                 self.store.show_empty_in_project(part_id, &project_id, true);
-                return Some(AppEvents::RELOAD_DATA_SELECT(
+                return Ok(AppEvents::ReloadDataSelect(
                     self.store
                         .part_by_id(&part_id)
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1325,11 +1308,9 @@ impl App {
             }
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+            })?;
 
             if let Some(project_id) = action_desc.project() {
                 // Update order to 1 if not set
@@ -1341,7 +1322,7 @@ impl App {
                         part: part_id.clone(),
                         ev: LedgerEvent::RequireInProject(project_id.clone()),
                     };
-                    self.store.record_event(&ev);
+                    self.store.record_event(&ev)?;
                     self.store.update_count_cache(&ev);
                 }
 
@@ -1349,78 +1330,74 @@ impl App {
                     .show_empty_in_project(&part_id, &project_id, true);
             }
 
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
-        None
+        Ok(AppEvents::Nop)
     }
 
-    fn finish_create_label_key(&mut self) -> Option<AppEvents> {
+    fn finish_create_label_key(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             if self.view.create_name.value().trim().is_empty() {
                 self.update_status("Label cannot be empty.");
-                return Some(AppEvents::REDRAW);
+                return Ok(AppEvents::Redraw);
             }
 
             let name = self.view.create_name.value().trim().to_string();
             self.store.add_label_key(&name);
-            return Some(AppEvents::RELOAD_DATA_SELECT(name.clone()));
+            return Ok(AppEvents::ReloadDataSelect(name.clone()));
         }
     }
 
-    fn finish_create_part_w_label(&mut self) -> Option<AppEvents> {
+    fn finish_create_part_w_label(&mut self) -> anyhow::Result<AppEvents> {
         let action_desc = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
         if let CreateMode::HINT(hint) = self.view.create_idx {
             if let Some(id) = &self.view.create_hints[hint].id {
-                let label = action_desc.label()?;
-                return Some(
-                    self.perform_add_label(&id.clone(), (label.0.clone(), label.1.clone())),
-                );
+                let label = action_desc.label().ok_or(AppError::BadOperationContext)?;
+                return self.perform_add_label(&id.clone(), (label.0.clone(), label.1.clone()));
             }
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+            })?;
 
-            let label = action_desc.label()?;
+            let label = action_desc.label().ok_or(AppError::BadOperationContext)?;
 
-            self.perform_add_label(&part_id, (label.0.clone(), label.1.clone()));
+            self.perform_add_label(&part_id, (label.0.clone(), label.1.clone()))?;
 
             let name = self
                 .store
                 .part_by_id(&part_id)
-                .map(|p| p.metadata.name.clone())?;
+                .map(|p| p.metadata.name.clone())
+                .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
 
-            return Some(AppEvents::RELOAD_DATA_SELECT(name));
+            return Ok(AppEvents::ReloadDataSelect(name));
         }
 
-        None
+        Ok(AppEvents::Nop)
     }
 
-    fn finish_create_source(&mut self) -> Option<AppEvents> {
+    fn finish_create_source(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Source);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Source);
+            })?;
 
             self.update_status(&format!("Source {} was created.", part_id));
-            return Some(AppEvents::RELOAD_DATA_SELECT(
+            return Ok(AppEvents::ReloadDataSelect(
                 self.store
                     .part_by_id(&part_id)
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
@@ -1428,36 +1405,34 @@ impl App {
         }
     }
 
-    fn finish_create_project(&mut self) -> Option<AppEvents> {
+    fn finish_create_project(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             // Enter on summary or name fields
-            let part_id = self
-                .create_object_from_dialog_data(|part| {
-                    part.metadata.types.insert(crate::store::ObjectType::Part);
-                    part.metadata
-                        .types
-                        .insert(crate::store::ObjectType::Project);
-                })
-                .ok()?;
+            let part_id = self.create_object_from_dialog_data(|part| {
+                part.metadata.types.insert(crate::store::ObjectType::Part);
+                part.metadata
+                    .types
+                    .insert(crate::store::ObjectType::Project);
+            })?;
 
             self.update_status(&format!("Project {} was created.", part_id));
             let name = self
                 .store
                 .part_by_id(&part_id)
                 .map_or(part_id.to_string(), |p| p.metadata.name.clone());
-            return Some(AppEvents::RELOAD_DATA_SELECT(name));
+            return Ok(AppEvents::ReloadDataSelect(name));
         }
     }
 
-    fn finish_create_label(&mut self) -> Option<AppEvents> {
+    fn finish_create_label(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::HINT(hint) = self.view.create_idx {
-            Some(AppEvents::SELECT(self.view.create_hints[hint].name.clone()))
+            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
         } else {
             if self.view.create_name.value().trim().is_empty() {
                 self.update_status("Label cannot be empty.");
-                return Some(AppEvents::REDRAW);
+                return Ok(AppEvents::Redraw);
             }
 
             let name = self.view.create_name.value().trim().to_string();
@@ -1465,10 +1440,12 @@ impl App {
                 .get_active_panel_data()
                 .actionable_objects(self.view.get_active_panel_selection(), &self.store);
 
-            let action_desc = action_desc?;
-            let label_key = action_desc.label_key()?;
+            let action_desc = action_desc.ok_or(AppError::BadOperationContext)?;
+            let label_key = action_desc
+                .label_key()
+                .ok_or(AppError::BadOperationContext)?;
             self.store.add_label(&label_key, &name);
-            return Some(AppEvents::RELOAD_DATA_SELECT(name.clone()));
+            return Ok(AppEvents::ReloadDataSelect(name.clone()));
         }
     }
 
@@ -1480,7 +1457,8 @@ impl App {
                 if let Some((prefix, suffix)) = candidate.rsplit_once("--") {
                     if let Some(suffix_no) = num::BigUint::parse_bytes(suffix.as_bytes(), 36) {
                         let next_suffix = suffix_no + 1_u32;
-                        candidate = Rc::from([prefix, next_suffix.to_str_radix(36).as_str()].join("--"));
+                        candidate =
+                            Rc::from([prefix, next_suffix.to_str_radix(36).as_str()].join("--"));
                     } else {
                         candidate = Rc::from([prefix, "1"].join("--"));
                     }
@@ -1533,69 +1511,57 @@ impl App {
         }
     }
 
-    fn finish_delete(&mut self) -> AppEvents {
+    fn finish_delete(&mut self) -> anyhow::Result<AppEvents> {
         self.view.hide_delete_dialog();
         let action_descriptor = self
             .get_active_panel_data()
             .actionable_objects(self.view.get_active_panel_selection(), &self.store);
 
         match self.get_active_panel_data().data_type() {
-            PanelContent::None => return AppEvents::REDRAW,
+            PanelContent::None => return Ok(AppEvents::Redraw),
             PanelContent::TypeSelection => todo!(),
             PanelContent::Parts => self.update_status("Part delete is not implemented yet."),
             PanelContent::Locations => {
                 self.update_status("Location delete is not implemented yet.")
             }
             PanelContent::PartsInLocation => {
-                if let Some(value) = self.finish_remove_part_from_location(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_part_from_location(action_descriptor);
             }
             PanelContent::LocationOfParts => {
-                if let Some(value) = self.finish_remove_part_from_location(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_part_from_location(action_descriptor);
             }
             PanelContent::LabelKeys | PanelContent::Labels => {
                 self.update_status("Labels will disappear when not present on any parts.")
             }
             PanelContent::PartsWithLabels => {
-                if let Some(value) = self.finish_remove_label_from_part(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_label_from_part(action_descriptor);
             }
             PanelContent::Sources => self.update_status("Source deletion not implemented yet."),
             PanelContent::PartsInOrders => {
-                if let Some(value) = self.finish_remove_part_from_source(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_part_from_source(action_descriptor);
             }
             PanelContent::PartsFromSources => {
-                if let Some(value) = self.finish_remove_part_from_source(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_part_from_source(action_descriptor);
             }
             PanelContent::Projects => self.update_status("Project deletion not implemented yet."),
             PanelContent::PartsInProjects => {
-                if let Some(value) = self.finish_remove_part_from_project(action_descriptor) {
-                    return value;
-                }
+                return self.finish_remove_part_from_project(action_descriptor);
             }
         }
 
-        AppEvents::RELOAD_DATA
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_remove_label_from_part(
         &mut self,
         action_descriptor: Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let ad = action_descriptor?;
-        let (key, value) = ad.label()?;
-        let part = ad.part()?;
+    ) -> anyhow::Result<AppEvents> {
+        let ad = action_descriptor.ok_or(AppError::BadOperationContext)?;
+        let (key, value) = ad.label().ok_or(AppError::BadOperationContext)?;
+        let part = ad.part().ok_or(AppError::BadOperationContext)?;
         self.update_status(&format!("Label {}: {} removed from {}", key, value, part));
         self.perform_remove_label(part, (key.clone(), value.clone()))
-            .or(Some(AppEvents::REDRAW))
+            .or(Ok(AppEvents::Redraw))
     }
 
     pub fn update_status(&mut self, msg: &str) {
@@ -1606,10 +1572,10 @@ impl App {
     fn finish_remove_part_from_source(
         &mut self,
         action_descriptor: Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let ad = action_descriptor?;
-        let part_id = ad.part()?;
-        let source_id = ad.source()?;
+    ) -> anyhow::Result<AppEvents> {
+        let ad = action_descriptor.ok_or(AppError::BadOperationContext)?;
+        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
+        let source_id = ad.source().ok_or(AppError::BadOperationContext)?;
 
         let count = self.store.get_by_source(part_id, source_id);
         let entry = LedgerEntry {
@@ -1619,24 +1585,24 @@ impl App {
             ev: LedgerEvent::CancelOrderFrom(Rc::clone(source_id)),
         };
         if entry.count > 0 {
-            self.store.record_event(&entry);
+            self.store.record_event(&entry)?;
             self.store.update_count_cache(&entry);
             self.store.show_empty_in_source(part_id, source_id, true);
             self.update_status(format!("Order of {} cancelled.", part_id).as_str());
-            return Some(AppEvents::RELOAD_DATA);
+            return Ok(AppEvents::ReloadData);
         }
 
         self.store.show_empty_in_source(part_id, source_id, false);
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_remove_part_from_location(
         &mut self,
         action_descriptor: Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let ad = action_descriptor?;
-        let part_id = ad.part()?;
-        let location_id = ad.location()?;
+    ) -> anyhow::Result<AppEvents> {
+        let ad = action_descriptor.ok_or(AppError::BadOperationContext)?;
+        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
+        let location_id = ad.location().ok_or(AppError::BadOperationContext)?;
 
         let count = self.store.get_by_location(part_id, location_id);
         if count.required() > 0 {
@@ -1646,26 +1612,26 @@ impl App {
                 part: part_id.clone(),
                 ev: LedgerEvent::RequireIn(location_id.clone()),
             };
-            self.store.record_event(&require_zero);
+            self.store.record_event(&require_zero)?;
             self.store.update_count_cache(&require_zero);
             self.store
                 .show_empty_in_location(part_id, &location_id, true);
             self.update_status(format!("Requirement of {} cancelled.", part_id).as_str());
-            return Some(AppEvents::RELOAD_DATA);
+            return Ok(AppEvents::ReloadData);
         }
 
         self.store
             .show_empty_in_location(part_id, &location_id, false);
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
     fn finish_remove_part_from_project(
         &mut self,
         action_descriptor: Option<ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let ad = action_descriptor?;
-        let part_id = ad.part()?;
-        let project_id = ad.project()?;
+    ) -> anyhow::Result<AppEvents> {
+        let ad = action_descriptor.ok_or(AppError::BadOperationContext)?;
+        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
+        let project_id = ad.project().ok_or(AppError::BadOperationContext)?;
 
         let count = self.store.get_by_project(part_id, project_id);
         if count.required() > 0 {
@@ -1675,24 +1641,24 @@ impl App {
                 part: part_id.clone(),
                 ev: LedgerEvent::RequireInProject(project_id.clone()),
             };
-            self.store.record_event(&require_zero);
+            self.store.record_event(&require_zero)?;
             self.store.update_count_cache(&require_zero);
             self.store.show_empty_in_project(part_id, &project_id, true);
             self.update_status(format!("Requirement of {} cancelled.", part_id).as_str());
-            return Some(AppEvents::RELOAD_DATA);
+            return Ok(AppEvents::ReloadData);
         }
 
         self.store
             .show_empty_in_project(part_id, &project_id, false);
-        Some(AppEvents::RELOAD_DATA)
+        Ok(AppEvents::ReloadData)
     }
 
-    fn press_f4(&self) -> Option<AppEvents> {
+    fn press_f4(&self) -> Result<AppEvents, AppError> {
         let item = self
             .get_active_panel_data()
             .item(self.view.get_active_panel_selection(), &self.store);
-        let part_id = item.id?;
-        Some(AppEvents::EDIT(part_id))
+        let part_id = item.id.ok_or(AppError::PartHasNoId)?;
+        Ok(AppEvents::Edit(part_id))
     }
 
     pub fn get_part(&self, p_id: &PartId) -> Option<&Part> {
@@ -1713,9 +1679,9 @@ impl App {
     fn finish_action_require_local(
         &mut self,
         source: Option<&ActionDescriptor>,
-    ) -> Option<AppEvents> {
-        let ad = source?;
-        let part_id = ad.part()?;
+    ) -> anyhow::Result<AppEvents> {
+        let ad = source.ok_or(AppError::BadOperationContext)?;
+        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
 
         if let Some(location_id) = ad.location() {
             let ev = LedgerEntry {
@@ -1725,7 +1691,7 @@ impl App {
                 ev: LedgerEvent::RequireIn(Rc::clone(location_id)),
             };
             self.store.update_count_cache(&ev);
-            self.store.record_event(&ev);
+            self.store.record_event(&ev)?;
         } else if let Some(source_id) = ad.source() {
             let ev = LedgerEntry {
                 t: Local::now().fixed_offset(),
@@ -1734,7 +1700,7 @@ impl App {
                 ev: LedgerEvent::OrderFrom(Rc::clone(source_id)),
             };
             self.store.update_count_cache(&ev);
-            self.store.record_event(&ev);
+            self.store.record_event(&ev)?;
         } else if let Some(project_id) = ad.project() {
             let ev = LedgerEntry {
                 t: Local::now().fixed_offset(),
@@ -1743,18 +1709,28 @@ impl App {
                 ev: LedgerEvent::RequireInProject(Rc::clone(project_id)),
             };
             self.store.update_count_cache(&ev);
-            self.store.record_event(&ev);
+            self.store.record_event(&ev)?;
         } else {
-            return Some(AppEvents::REDRAW);
+            return Ok(AppEvents::Redraw);
         }
 
-        return Some(AppEvents::RELOAD_DATA);
+        return Ok(AppEvents::ReloadData);
     }
 
-    fn action_clone_part(&mut self) -> Option<AppEvents> {
-        let item_id = self.get_active_panel_data().item(self.view.get_active_panel_selection(), &self.store).id?;
-        let item = self.store.part_by_id(&item_id)?;
-        let is_project = item.metadata.types.contains(&crate::store::ObjectType::Project);
+    fn action_clone_part(&mut self) -> Result<AppEvents, AppError> {
+        let item_id = self
+            .get_active_panel_data()
+            .item(self.view.get_active_panel_selection(), &self.store)
+            .id
+            .ok_or(AppError::PartHasNoId)?;
+        let item = self
+            .store
+            .part_by_id(&item_id)
+            .ok_or(AppError::NoSuchObject(item_id.to_string()))?;
+        let is_project = item
+            .metadata
+            .types
+            .contains(&crate::store::ObjectType::Project);
 
         let mut new_item = item.clone();
         let new_id = self.make_new_id(&item.metadata.name);
@@ -1764,7 +1740,7 @@ impl App {
         new_item.metadata.name = new_name.clone();
         new_item.filename = None;
 
-        self.store.store_part(&mut new_item);
+        self.store.store_part(&mut new_item)?;
         self.store.insert_part_to_cache(new_item);
 
         if is_project {
@@ -1776,12 +1752,12 @@ impl App {
                     part: Rc::clone(r.part()),
                     ev: LedgerEvent::RequireInProject(Rc::clone(&new_id)),
                 };
-                self.store.record_event(&entry);
+                self.store.record_event(&entry)?;
                 self.store.update_count_cache(&entry);
             }
         }
 
-        Some(AppEvents::RELOAD_DATA_SELECT(new_name))
+        Ok(AppEvents::ReloadDataSelect(new_name))
     }
 }
 
@@ -1790,11 +1766,11 @@ impl App {
 #[derive(Debug)]
 struct TemporaryEmptyPanel();
 impl PanelData for TemporaryEmptyPanel {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         todo!()
     }
 
-    fn panel_title(&self, store: &Store) -> String {
+    fn panel_title(&self, _store: &Store) -> String {
         todo!()
     }
 
@@ -1802,43 +1778,43 @@ impl PanelData for TemporaryEmptyPanel {
         todo!()
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> model::EnterAction {
+    fn enter(self: Box<Self>, _idx: usize, _store: &Store) -> model::EnterAction {
         todo!()
     }
 
-    fn reload(&mut self, store: &Store) {
+    fn reload(&mut self, _store: &Store) {
         todo!()
     }
 
-    fn item_actionable(&self, idx: usize) -> bool {
+    fn item_actionable(&self, _idx: usize) -> bool {
         todo!()
     }
 
-    fn item_summary(&self, idx: usize, store: &Store) -> String {
+    fn item_summary(&self, _idx: usize, _store: &Store) -> String {
         todo!()
     }
 
-    fn len(&self, store: &Store) -> usize {
+    fn len(&self, _store: &Store) -> usize {
         todo!()
     }
 
-    fn items(&self, store: &Store) -> Vec<PanelItem> {
+    fn items(&self, _store: &Store) -> Vec<PanelItem> {
         todo!()
     }
 
-    fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor> {
+    fn actionable_objects(&self, _idx: usize, _store: &Store) -> Option<ActionDescriptor> {
         todo!()
     }
 
-    fn item_idx(&self, id: &str, store: &Store) -> Option<usize> {
+    fn item_idx(&self, _id: &str, _store: &Store) -> Option<usize> {
         todo!()
     }
 
-    fn item_name(&self, idx: usize, store: &Store) -> String {
+    fn item_name(&self, _idx: usize, _store: &Store) -> String {
         todo!()
     }
 
-    fn item(&self, idx: usize, store: &Store) -> PanelItem {
+    fn item(&self, _idx: usize, _store: &Store) -> PanelItem {
         todo!()
     }
 }

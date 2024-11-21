@@ -1,10 +1,8 @@
-use std::cell::RefCell;
-
-use crate::store::{cache::CountCacheSum, PartId, Store};
+use crate::store::{cache::CountCacheSum, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, OpaqueId, PanelContent, PanelData, PanelItem},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
     panel_parts::PanelPartLocationsSelection,
 };
 
@@ -39,7 +37,7 @@ impl PanelLabelSelection {
 }
 
 impl PanelData for PanelLabelSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Label list".to_owned()
     }
 
@@ -144,7 +142,7 @@ impl PanelLabelValueSelection {
 }
 
 impl PanelData for PanelLabelValueSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         format!("Label values for {}", self.key).to_owned()
     }
 
@@ -258,7 +256,7 @@ impl PanelPartByLabelSelection {
 }
 
 impl PanelData for PanelPartByLabelSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         format!("Parts marked as {}: {}", self.label_key, self.label_value).to_string()
     }
 

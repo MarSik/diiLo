@@ -1,7 +1,7 @@
-use crate::store::{PartId, Store};
+use crate::store::Store;
 
 use super::{
-    model::{ActionDescriptor, EnterAction, OpaqueId, PanelContent, PanelData, PanelItem},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
     panel_labels::PanelLabelSelection,
     panel_locations::PanelLocationSelection,
     panel_parts::PanelPartSelection,
@@ -35,7 +35,7 @@ impl PanelData for PanelTypeSelection {
         PanelContent::TypeSelection
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         match idx {
             0 => EnterAction(Box::new(PanelPartSelection::new(self)), 0),
             1 => EnterAction(Box::new(PanelProjectSelection::new(self)), 0),
@@ -46,47 +46,47 @@ impl PanelData for PanelTypeSelection {
         }
     }
 
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Select the view you want to work with.".to_owned()
     }
 
-    fn item_summary(&self, idx: usize, store: &Store) -> String {
+    fn item_summary(&self, idx: usize, _store: &Store) -> String {
         self.data[idx].summary.clone()
     }
 
-    fn len(&self, store: &Store) -> usize {
+    fn len(&self, _store: &Store) -> usize {
         self.data.len()
     }
 
-    fn items(&self, store: &Store) -> Vec<PanelItem> {
+    fn items(&self, _store: &Store) -> Vec<PanelItem> {
         self.data.clone()
     }
 
-    fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor> {
+    fn actionable_objects(&self, _idx: usize, _store: &Store) -> Option<ActionDescriptor> {
         None
     }
 
-    fn panel_title(&self, store: &Store) -> String {
+    fn panel_title(&self, _store: &Store) -> String {
         self.name.clone()
     }
 
-    fn reload(&mut self, store: &Store) {
+    fn reload(&mut self, _store: &Store) {
         // NOP
     }
 
-    fn item_actionable(&self, idx: usize) -> bool {
+    fn item_actionable(&self, _idx: usize) -> bool {
         false
     }
 
-    fn item_idx(&self, id: &str, store: &Store) -> Option<usize> {
+    fn item_idx(&self, _id: &str, _store: &Store) -> Option<usize> {
         None
     }
 
-    fn item_name(&self, idx: usize, store: &Store) -> String {
+    fn item_name(&self, idx: usize, _store: &Store) -> String {
         self.data.get(idx).unwrap().name.clone()
     }
 
-    fn item(&self, idx: usize, store: &Store) -> PanelItem {
+    fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data.get(idx).unwrap().clone()
     }
 }

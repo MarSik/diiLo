@@ -1,12 +1,7 @@
 use super::*;
-use crossterm::event::{self, KeyEvent, KeyModifiers};
+use crossterm::event;
 use event::KeyCode;
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::{Style, Stylize},
-    widgets::Widget,
-};
+use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
 use tempdir::TempDir;
 
 /*
@@ -48,8 +43,8 @@ fn test_start_stop() -> anyhow::Result<()> {
     let area = buf.area().clone();
     app.render(area, &mut buf);
 
-    let event = app.handle_key_event(KeyCode::F(12).into());
-    assert_eq!(event, AppEvents::QUIT, "The app should quit on F12");
+    let event = app.handle_key_event(KeyCode::F(12).into())?;
+    assert_eq!(event, AppEvents::Quit, "The app should quit on F12");
 
     Ok(())
 }

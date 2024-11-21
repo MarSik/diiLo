@@ -1,13 +1,11 @@
-use std::cell::RefCell;
-
 use crate::{
     app::model::PanelItem,
-    store::{cache::CountCacheSum, LocationId, PartId, Store},
+    store::{cache::CountCacheSum, LocationId, Store},
 };
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, OpaqueId, PanelContent, PanelData},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData},
 };
 
 #[derive(Debug)]
@@ -49,7 +47,7 @@ impl PanelLocationSelection {
 }
 
 impl PanelData for PanelLocationSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Location list".to_owned()
     }
 
@@ -165,7 +163,7 @@ impl PanelData for PanelLocationPartsSelection {
         PanelContent::PartsInLocation
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         if idx == 0 {
             return self.parent.enter();
         }

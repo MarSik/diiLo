@@ -1,11 +1,8 @@
-use std::cell;
-use std::path::PathBuf;
-
 use itertools::Itertools;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Style, Styled, Stylize};
-use ratatui::symbols::border::{self, PLAIN};
+use ratatui::style::{Color, Style, Stylize};
+use ratatui::symbols::border;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, Clear, Padding, Paragraph, Row, Scrollbar, ScrollbarState,
@@ -420,7 +417,8 @@ impl App {
                     .collect::<String>();
 
                 // Split according to UTF-8 character boundaries
-                let summary_split = v.summary
+                let summary_split = v
+                    .summary
                     .char_indices()
                     .nth(summary_length)
                     .map_or_else(|| v.summary.len(), |(index, _)| index);
@@ -505,13 +503,13 @@ impl App {
             .render(block_area[0], buf);
 
         Paragraph::new(vec![
-                Line::from(vec![" ".into(), source_name]),
-                Line::from(vec!["   ".into(), source_summary])
-            ])
-            .blue()
-            .bold()
-            .alignment(ratatui::layout::Alignment::Left)
-            .render(block_area[1], buf);
+            Line::from(vec![" ".into(), source_name]),
+            Line::from(vec!["   ".into(), source_summary]),
+        ])
+        .blue()
+        .bold()
+        .alignment(ratatui::layout::Alignment::Left)
+        .render(block_area[1], buf);
 
         if self.view.action_count_dialog_action.dual_panel() {
             let destination_idx = self.view.get_inactive_panel_selection();

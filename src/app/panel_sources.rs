@@ -1,11 +1,8 @@
-use std::cell::RefCell;
-
-use crate::store::{cache::CountCacheSum, LocationId, PartId, SourceId, Store};
+use crate::store::{cache::CountCacheSum, LocationId, SourceId, Store};
 
 use super::{
     caching_panel_data::{self, CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, OpaqueId, PanelContent, PanelData, PanelItem},
-    panel_parts::PanelPartLocationsSelection,
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
 };
 
 #[derive(Debug)]
@@ -50,7 +47,7 @@ impl PanelSourceSelection {
 }
 
 impl PanelData for PanelSourceSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Source list".to_owned()
     }
 
@@ -90,7 +87,7 @@ impl PanelData for PanelSourceSelection {
             .map(|source_id| ActionDescriptor::new().add_source(source_id))
     }
 
-    fn panel_title(&self, store: &Store) -> String {
+    fn panel_title(&self, _store: &Store) -> String {
         "Sources".to_owned()
     }
 
@@ -144,7 +141,7 @@ impl PanelData for PanelSourcesMenu {
         PanelContent::Sources
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         match idx {
             0 => EnterAction(self.parent, self.parent_idx),
             1 => {
@@ -165,23 +162,23 @@ impl PanelData for PanelSourcesMenu {
         }
     }
 
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Select the view for the source.".to_owned()
     }
 
-    fn item_summary(&self, idx: usize, store: &Store) -> String {
+    fn item_summary(&self, idx: usize, _store: &Store) -> String {
         self.data[idx].name.to_owned()
     }
 
-    fn len(&self, store: &Store) -> usize {
+    fn len(&self, _store: &Store) -> usize {
         self.data.len()
     }
 
-    fn items(&self, store: &Store) -> Vec<PanelItem> {
+    fn items(&self, _store: &Store) -> Vec<PanelItem> {
         self.data.clone()
     }
 
-    fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor> {
+    fn actionable_objects(&self, _idx: usize, _store: &Store) -> Option<ActionDescriptor> {
         Some(ActionDescriptor::new().add_source(self.source_id.clone()))
     }
 
@@ -198,22 +195,22 @@ impl PanelData for PanelSourcesMenu {
             caching_panel_data::panel_reload(&mut self.parent, self.parent_idx, store);
     }
 
-    fn item_actionable(&self, idx: usize) -> bool {
+    fn item_actionable(&self, _idx: usize) -> bool {
         false
     }
 
-    fn item_idx(&self, name: &str, store: &Store) -> Option<usize> {
+    fn item_idx(&self, name: &str, _store: &Store) -> Option<usize> {
         match self.data[1..].binary_search_by_key(&name.to_string(), |v| v.name.to_lowercase()) {
             Ok(idx) => Some(idx + 1),
             Err(idx) => Some(idx + 2),
         }
     }
 
-    fn item_name(&self, idx: usize, store: &Store) -> String {
+    fn item_name(&self, idx: usize, _store: &Store) -> String {
         return self.data[idx].name.clone();
     }
 
-    fn item(&self, idx: usize, store: &Store) -> PanelItem {
+    fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data[idx].clone()
     }
 }
@@ -269,7 +266,7 @@ impl PanelData for PanelPartFromSourcesSelection {
         PanelContent::PartsFromSources
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         if idx == 0 {
             return self.parent.enter();
         }
@@ -343,7 +340,7 @@ impl PanelOrderedFromSourcesSelection {
         store
             .parts_by_source(&self.source_id)
             .iter()
-            .filter(|(p, count)| count.show_empty() || (count.required() > count.added()))
+            .filter(|(_, count)| count.show_empty() || (count.required() > count.added()))
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
@@ -367,7 +364,7 @@ impl PanelData for PanelOrderedFromSourcesSelection {
         PanelContent::PartsInOrders
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         if idx == 0 {
             return self.parent.enter();
         }

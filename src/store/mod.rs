@@ -1,33 +1,25 @@
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::{env, io};
 
 use cache::CountChange::{ADD, NONE, REMOVE, SET};
 use cache::{CountCache, CountCacheEntry};
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime};
+use chrono::{DateTime, FixedOffset, Local};
 use gray_matter::engine::YAML;
 use gray_matter::{Matter, ParsedEntityStruct};
 use log::debug;
 use multimap::MultiMap;
-use parse_datetime::{parse_datetime, parse_datetime_at_date};
 use regex::Regex;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::{Deserializer, Serialize, Serializer};
+use serde::Serialize;
 use serializer::LedgerSerializer;
-use tantivy::IndexWriter;
-use tantivy::{
-    schema::{Schema, STORED, TEXT},
-    Index, IndexReader, ReloadPolicy,
-};
-use tempdir::TempDir;
 
 pub mod cache;
-mod serializer;
+pub mod serializer;
 
+use crate::app::errs::AppError;
 use crate::store::serializer::{deserialize_labels, serialize_labels};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
@@ -80,18 +72,6 @@ pub struct Part {
     pub filename: Option<PathBuf>,
     pub metadata: PartMetadata,
     pub content: String,
-}
-
-#[derive(Hash, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub(crate) enum Keys {
-    MANUFACTURER_ID,
-    LOCATION,
-    PROJECT,
-}
-
-#[derive(Hash, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub(crate) enum Values {
-    COUNT,
 }
 
 pub fn is_false(v: &bool) -> bool {
@@ -351,9 +331,12 @@ pub enum LedgerEvent {
 
 pub struct Store {
     basepath: PathBuf,
-    search_index_path: TempDir, // hold to prevent deletion while the index is in use
-    search_index: Index,
-    search_reader: IndexReader,
+
+    // TODO full text search index
+    // search_index_path: TempDir, // hold to prevent deletion while the index is in use
+    // search_index: Index,
+    // search_reader: IndexReader,
+
     // Free parts in storage
     // added - how many were stored in the location (accumulating sum)
     // removed - how many were retrieved from location (accumulating sum)
@@ -370,7 +353,7 @@ pub struct Store {
     project_cache: CountCache,
 
     // Uncommited ledger events
-    open_ledger: Vec<LedgerEntry>, // TODO allow recording events without persisting and then commit on user's command
+    // open_ledger: Vec<LedgerEntry>, // TODO allow recording events without persisting and then commit on user's command
     ledger_name: String,
 
     // Cached values
@@ -387,6 +370,7 @@ impl Store {
 
         // Initialize Tantivy full text search
         // follows https://tantivy-search.github.io/examples/basic_search.html
+        /*
         let search_index_path = TempDir::new("tantivy-index-")?;
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_iid", TEXT | STORED);
@@ -403,6 +387,7 @@ impl Store {
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()?;
+        */
 
         fs::create_dir_all(&basepath.join("md"))?;
         fs::create_dir_all(&basepath.join("ledger"))?;
@@ -411,13 +396,13 @@ impl Store {
 
         Ok(Self {
             basepath: PathBuf::from(&basepath),
-            search_reader,
-            search_index,
+            // search_reader,
+            // search_index,
+            // search_index_path,
             count_cache: CountCache::new(),
             source_cache: CountCache::new(),
             project_cache: CountCache::new(),
-            open_ledger: Vec::new(),
-            search_index_path,
+            // open_ledger: Vec::new(),
             ledger_name,
             parts: HashMap::new(),
             labels: HashMap::new(),
@@ -485,7 +470,8 @@ impl Store {
     // Drop information caches and reload all parts from the stored
     // markdown files.
     pub fn scan_parts(&mut self) -> anyhow::Result<()> {
-        let mut index_writer: IndexWriter = self.search_index.writer(50_000_000)?;
+        // TODO update full text index
+        // let mut _index_writer: IndexWriter = self.search_index.writer(50_000_000)?;
 
         self.parts.clear();
         self.labels.clear();
@@ -518,12 +504,7 @@ impl Store {
         self.parts.insert(part.id.clone(), part);
     }
 
-    pub(crate) fn remove_part_from_cache(&mut self, part: &Part) {
-        // Clean part caches
-        self.parts.remove(&part.id);
-    }
-
-    pub fn store_part(&mut self, part: &mut Part) -> anyhow::Result<()> {
+    pub fn store_part(&mut self, part: &mut Part) -> Result<(), AppError> {
         if part.filename.is_none() {
             part.filename = Some(self.basepath.join("md").join(part.id.to_string()));
             part.filename.as_mut().unwrap().set_extension("md");
@@ -533,27 +514,30 @@ impl Store {
             part.metadata.id = Some(part.id.to_string());
         }
 
-        let mut f = File::create(part.filename.as_ref().unwrap().clone())?;
-        f.write(b"---\n")?;
-        serde_yaml::to_writer(&f, &part.metadata)?;
-        f.write(b"\n---\n")?;
-        f.write(part.content.as_bytes())?;
+        let mut f =
+            File::create(part.filename.as_ref().unwrap().clone()).map_err(AppError::IoError)?;
+        f.write(b"---\n").map_err(AppError::IoError)?;
+        serde_yaml::to_writer(&f, &part.metadata).map_err(AppError::ObjectSerializationError)?;
+        f.write(b"\n---\n").map_err(AppError::IoError)?;
+        f.write(part.content.as_bytes())
+            .map_err(AppError::IoError)?;
 
         Ok(())
     }
 
     // Initialize new ledger that will be used until program closes
     // or until create_ledger is called again
-    pub fn create_ledger(&mut self, name: Option<&str>) -> anyhow::Result<()> {
+    pub fn open_ledger(&mut self, name: Option<&str>) -> Result<File, io::Error> {
         self.ledger_name = name.unwrap_or(Self::ledger_name_now().as_str()).to_string();
-        let mut f = OpenOptions::new()
+        let f = OpenOptions::new()
             .create(true)
+            .append(true)
             .open(self.basepath.join("ledger").join(self.ledger_name.as_str()))?;
-        Ok(())
+        Ok(f)
     }
 
     // Store one event to the ledger (persistently)
-    pub fn record_event(&mut self, entry: &LedgerEntry) -> anyhow::Result<()> {
+    pub fn record_event(&mut self, entry: &LedgerEntry) -> Result<(), AppError> {
         let dto = match &entry.ev {
             LedgerEvent::TakeFrom(location) => LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
@@ -656,12 +640,12 @@ impl Store {
             },
         };
 
-        let mut f = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.basepath.join("ledger").join(self.ledger_name.as_str()))?;
+        let f = self
+            .open_ledger(Some(self.ledger_name.clone().as_str()))
+            .map_err(AppError::IoError)?;
         let mut ser = LedgerSerializer::from_file(f);
-        dto.serialize(&mut ser);
+        dto.serialize(&mut ser)
+            .map_err(AppError::LedgerSerializationError)?;
         Ok(())
     }
 

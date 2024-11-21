@@ -1,6 +1,4 @@
-use std::cell::RefCell;
-
-use crate::store::{cache::CountCacheSum, LocationId, PartId, Store};
+use crate::store::{cache::CountCacheSum, PartId, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
@@ -42,7 +40,7 @@ impl PanelPartSelection {
 }
 
 impl PanelData for PanelPartSelection {
-    fn title(&self, store: &Store) -> String {
+    fn title(&self, _store: &Store) -> String {
         "Nonfiltered part list".to_owned()
     }
 
@@ -163,7 +161,7 @@ impl PanelData for PanelPartLocationsSelection {
         PanelContent::LocationOfParts
     }
 
-    fn enter(self: Box<Self>, idx: usize, store: &Store) -> EnterAction {
+    fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         if idx == 0 {
             return self.parent.enter();
         }

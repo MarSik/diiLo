@@ -1,6 +1,7 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 
 use super::{
+    errs::AppError,
     view::{ActivePanel, CreateMode, Hot, ViewLayout},
     App, AppEvents,
 };
@@ -19,12 +20,12 @@ impl App {
     // F10 - app menu
     // F11 - ?
     // F12 - save, exit
-    fn handle_global_key_event(&mut self, key_event: KeyEvent) -> AppEvents {
+    fn handle_global_key_event(&mut self, key_event: KeyEvent) -> Result<AppEvents, AppError> {
         match key_event.code {
             KeyCode::F(2) => return self.press_f2(),
 
             KeyCode::F(3) => self.view.switch_full_split_layout(),
-            KeyCode::F(4) => return self.press_f4().unwrap_or(AppEvents::REDRAW),
+            KeyCode::F(4) => return self.press_f4(),
 
             KeyCode::F(5) => return self.press_f5(),
             KeyCode::F(6) => return self.press_f6(),
@@ -33,19 +34,19 @@ impl App {
             KeyCode::F(8) => return self.press_f8(),
             KeyCode::F(9) => return self.press_f9(),
 
-            KeyCode::F(12) => return AppEvents::QUIT,
+            KeyCode::F(12) => return Ok(AppEvents::Quit),
             KeyCode::Down => self
                 .view
                 .move_down(self.get_active_panel_data().len(&self.store)),
             KeyCode::Up => self.view.move_up(),
             KeyCode::PageDown => {
-                for i in 0..10 {
+                for _i in 0..10 {
                     self.view
                         .move_down(self.get_active_panel_data().len(&self.store));
                 }
             }
             KeyCode::PageUp => {
-                for i in 0..10 {
+                for _i in 0..10 {
                     self.view.move_up();
                 }
             }
@@ -76,7 +77,7 @@ impl App {
                 .view
                 .scroll_to(self.get_active_panel_data().len(&self.store) - 1),
             KeyCode::Tab => self.view.switch_active_panel(),
-            KeyCode::Enter => return self.press_enter(),
+            KeyCode::Enter => return Ok(self.press_enter()),
             KeyCode::Char(c) => {
                 let val = self
                     .view
@@ -87,10 +88,10 @@ impl App {
             _ => {}
         }
 
-        AppEvents::REDRAW
+        Ok(AppEvents::Redraw)
     }
 
-    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> AppEvents {
+    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> anyhow::Result<AppEvents> {
         match self.view.hot() {
             Hot::ActionCountDialog => match key_event.code {
                 KeyCode::Up => self.view.action_dialog_count_up(),
@@ -182,7 +183,7 @@ impl App {
                 | KeyCode::Left
                 | KeyCode::Right
                 | KeyCode::PageUp
-                | KeyCode::PageDown => return self.handle_global_key_event(key_event),
+                | KeyCode::PageDown => return Ok(self.handle_global_key_event(key_event)?),
                 _ => (),
             },
             Hot::PanelSearch => match key_event.code {
@@ -235,14 +236,14 @@ impl App {
                 | KeyCode::Down
                 | KeyCode::Up
                 | KeyCode::PageDown
-                | KeyCode::PageUp => return self.handle_global_key_event(key_event),
+                | KeyCode::PageUp => return Ok(self.handle_global_key_event(key_event)?),
                 _ => {}
             },
             _ => match key_event.code {
-                _ => return self.handle_global_key_event(key_event),
+                _ => return Ok(self.handle_global_key_event(key_event)?),
             },
         }
 
-        AppEvents::REDRAW
+        Ok(AppEvents::Redraw)
     }
 }

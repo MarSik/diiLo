@@ -1,5 +1,3 @@
-use std::{any::Any, default, rc::Rc};
-
 use crate::store::{LocationId, PartId, SourceId, Store};
 
 use super::panel_typesel::PanelTypeSelection;
@@ -20,20 +18,6 @@ impl Default for Model {
 }
 
 impl Model {}
-
-pub(super) trait OpaqueId {
-    fn as_any(&self) -> &dyn Any;
-}
-
-// Helper implementation for a common case
-// It is prefered to implement a custom type
-// as it will provide much better runtime protection
-// against mistakes when passing to data store
-impl OpaqueId for usize {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
 
 // PanelData defines a virtual interface for the transfer of
 // data between the real data store backing the implementation
@@ -89,12 +73,6 @@ pub(super) trait PanelData: std::fmt::Debug {
     //          cached values.
     // Return None when the content is empty.
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize>;
-
-    // Return possible autocompletion hints based on `input`
-    // that are relevant for the current panel
-    fn make_hints(&self, input: &str, store: &Store) -> Vec<PanelItem> {
-        vec![]
-    }
 }
 
 // the first element is the panel data source to activate

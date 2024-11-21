@@ -1,8 +1,8 @@
-use std::{cell::RefCell, marker::PhantomData};
+use std::cell::RefCell;
 
 use crate::store::{PartId, Store};
 
-use super::model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem};
+use super::model::{EnterAction, PanelData, PanelItem};
 
 #[derive(Debug)]
 pub struct ParentPanel {

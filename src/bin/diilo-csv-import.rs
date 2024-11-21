@@ -1,11 +1,5 @@
-use std::{
-    collections::HashSet,
-    fs::{self, File},
-    hash::Hash,
-    path::PathBuf,
-};
+use std::{collections::HashSet, fs::File, path::PathBuf};
 
-use chrono::{DateTime, Local, NaiveDateTime};
 use diilo::store::{LedgerEntry, LedgerEvent, Part, PartMetadata, Store};
 use multimap::MultiMap;
 
@@ -32,7 +26,7 @@ struct CsvLedgerDto {
 
 fn main() -> anyhow::Result<()> {
     let mut store = Store::new(PathBuf::from("output"))?;
-    store.create_ledger(None);
+    store.open_ledger(None)?;
 
     let csv_ledger = File::open("ledger.csv")?;
     let csv_parts = File::open("parts.csv")?;
@@ -50,7 +44,7 @@ fn main() -> anyhow::Result<()> {
         let csv_ledger: CsvLedgerDto = csv_ledger?;
 
         if csv_ledger.added.unwrap_or(0) > 0 && !csv_ledger.location.is_empty() {
-            let mut ledger = LedgerEntry {
+            let ledger = LedgerEntry {
                 t: parse_datetime::parse_datetime(&csv_ledger.t)?,
                 count: csv_ledger.added.unwrap(),
                 ev: LedgerEvent::StoreTo(
@@ -66,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         if csv_ledger.removed.unwrap_or(0) > 0 && !csv_ledger.location.is_empty() {
-            let mut ledger = LedgerEntry {
+            let ledger = LedgerEntry {
                 t: parse_datetime::parse_datetime(&csv_ledger.t)?,
                 count: csv_ledger.removed.unwrap(),
                 ev: LedgerEvent::TakeFrom(
@@ -82,7 +76,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         if !csv_ledger.project.is_empty() && csv_ledger.added.unwrap_or(0) > 0 {
-            let mut ledger = LedgerEntry {
+            let ledger = LedgerEntry {
                 t: parse_datetime::parse_datetime(&csv_ledger.t)?,
                 count: csv_ledger.added.unwrap(),
                 ev: LedgerEvent::UnsolderFrom(
@@ -98,7 +92,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         if !csv_ledger.project.is_empty() && csv_ledger.removed.unwrap_or(0) > 0 {
-            let mut ledger = LedgerEntry {
+            let ledger = LedgerEntry {
                 t: parse_datetime::parse_datetime(&csv_ledger.t)?,
                 count: csv_ledger.removed.unwrap(),
                 ev: LedgerEvent::SolderTo(
@@ -114,7 +108,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         if !csv_ledger.source.is_empty() && csv_ledger.added.unwrap_or(0) > 0 {
-            let mut ledger = LedgerEntry {
+            let ledger = LedgerEntry {
                 t: parse_datetime::parse_datetime(&csv_ledger.t)?,
                 count: csv_ledger.added.unwrap(),
                 ev: LedgerEvent::DeliverFrom(csv_ledger.source.as_str().into()),
@@ -181,7 +175,7 @@ fn main() -> anyhow::Result<()> {
             );
         }
 
-        store.store_part(&mut part);
+        store.store_part(&mut part)?;
     }
 
     println!(".");
@@ -213,7 +207,7 @@ fn main() -> anyhow::Result<()> {
         };
         p.metadata.types.insert(diilo::store::ObjectType::Project);
         p.metadata.types.insert(diilo::store::ObjectType::Part);
-        store.store_part(&mut p);
+        store.store_part(&mut p)?;
     }
 
     for l in locations {
@@ -241,7 +235,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         };
         p.metadata.types.insert(diilo::store::ObjectType::Location);
-        store.store_part(&mut p);
+        store.store_part(&mut p)?;
     }
 
     for l in sources {
@@ -269,7 +263,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         };
         p.metadata.types.insert(diilo::store::ObjectType::Source);
-        store.store_part(&mut p);
+        store.store_part(&mut p)?;
     }
 
     Ok(())

@@ -1,15 +1,12 @@
-use std::any;
-use std::env::temp_dir;
 use std::fs::{self, File};
-use std::os::unix::process::CommandExt;
 use std::process::Command;
-use std::{env, io, path::PathBuf};
+use std::{env, path::PathBuf};
 
 use crossterm::event::{Event, EventStream, KeyEventKind};
-use futures::{executor::block_on, select, FutureExt, StreamExt};
-use log::{debug, error, info};
 use diilo::app::{App, AppEvents};
 use diilo::store::{default_store_path, Store};
+use futures::{executor::block_on, select, FutureExt, StreamExt};
+use log::{debug, error, info};
 use tempdir::TempDir;
 
 fn main() -> anyhow::Result<()> {
@@ -59,29 +56,27 @@ fn main() -> anyhow::Result<()> {
         loop {
             if needs_refresh {
                 needs_refresh = false;
-                if let Err(e) = terminal.draw(|frame| frame.render_widget(&app, frame.area())) {
-                    break;
-                }
+                terminal.draw(|frame| frame.render_widget(&app, frame.area()))?;
             }
 
             match handle_events(&mut app, &mut event_stream).await {
-                AppEvents::REDRAW => needs_refresh = true,
-                AppEvents::RELOAD_DATA => {
+                Ok(AppEvents::Redraw) => needs_refresh = true,
+                Ok(AppEvents::ReloadData) => {
                     // TODO reload data store?
                     app.reload();
                     needs_refresh = true;
                 }
-                AppEvents::RELOAD_DATA_SELECT(name) => {
+                Ok(AppEvents::ReloadDataSelect(name)) => {
                     app.reload();
                     app.select_item(&name);
                     needs_refresh = true;
                 }
-                AppEvents::SELECT(name) => {
+                Ok(AppEvents::Select(name)) => {
                     app.select_item(&name);
                     needs_refresh = true;
                 }
-                AppEvents::QUIT => break,
-                AppEvents::EDIT(part_id) => {
+                Ok(AppEvents::Quit) => break,
+                Ok(AppEvents::Edit(part_id)) => {
                     match open_in_editor(&mut app, part_id) {
                         Ok(name) => {
                             app.reload();
@@ -94,13 +89,19 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     // The clear is necessary to force full redraw
-                    terminal.clear();
+                    terminal.clear()?;
                     needs_refresh = true;
                 }
-                _ => continue,
+                Ok(AppEvents::Nop) => {
+                    // Redraw just to be sure
+                    needs_refresh = true;
+                }
+                Err(err) => return anyhow::Result::Err(err),
             }
         }
-    });
+
+        anyhow::Result::Ok(())
+    })?;
 
     ratatui::restore();
     Ok(())
@@ -178,7 +179,7 @@ fn open_in_editor(app: &mut App, part_id: std::rc::Rc<str>) -> anyhow::Result<St
 }
 
 /// updates the application's state based on user input
-async fn handle_events(app: &mut App, event_stream: &mut EventStream) -> AppEvents {
+async fn handle_events(app: &mut App, event_stream: &mut EventStream) -> anyhow::Result<AppEvents> {
     // Wait on multiple sources - event bus (TODO), keyboard
     select! {
         event = event_stream.next().fuse() => {
@@ -188,14 +189,14 @@ async fn handle_events(app: &mut App, event_stream: &mut EventStream) -> AppEven
                 Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
                     return app.handle_key_event(key_event);
                 }
-                Some(Ok(Event::Resize(_, _))) => return AppEvents::REDRAW,
-                Some(Err(e)) => return AppEvents::ERROR,
+                Some(Ok(Event::Resize(_, _))) => return Ok(AppEvents::Redraw),
+                Some(Err(e)) => return Err(anyhow::anyhow!(e)),
                 _ => {}
             };
         }
     }
 
-    AppEvents::NOP
+    Ok(AppEvents::Nop)
 }
 
 // Compute proper log path based on Free Desktop environment variables.
