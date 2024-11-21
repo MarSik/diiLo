@@ -421,7 +421,7 @@ impl Store {
             ledger_name,
             parts: HashMap::new(),
             labels: HashMap::new(),
-            re_cleanup_name: regex::Regex::new("[\n _/.]+").unwrap(),
+            re_cleanup_name: regex::Regex::new("[\n\t _/.]+").unwrap(),
         })
     }
 

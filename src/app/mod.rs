@@ -8,7 +8,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use log::{error, info};
+use log::{debug, error, info};
 use model::{ActionDescriptor, Model, PanelContent, PanelData, PanelItem};
 use tui_input::Input;
 use view::{CreateMode, DialogState, View};
@@ -86,7 +86,7 @@ pub enum ActionVariant {
     AddLabel,
     RemoveLabel,
     CreatePart,
-    CopyPart,
+    ClonePart,
     RequirePart,
     OrderPart,
     MovePart,
@@ -105,8 +105,8 @@ impl ActionVariant {
             ActionVariant::Error => "",
             ActionVariant::AddLabel => "label",
             ActionVariant::RemoveLabel => "unlabel",
-            ActionVariant::CreatePart => "create",
-            ActionVariant::CopyPart => "clone",
+            ActionVariant::CreatePart => "make",
+            ActionVariant::ClonePart => "clone",
             ActionVariant::RequirePart => "require",
             ActionVariant::OrderPart => "order",
             ActionVariant::MovePart => "move",
@@ -124,6 +124,8 @@ impl ActionVariant {
             ActionVariant::OrderPartLocal => false,
             ActionVariant::RequirePartLocal => false,
             ActionVariant::Delete => false,
+            ActionVariant::ClonePart => false,
+            ActionVariant::CreatePart => false,
             _ => true,
         }
     }
@@ -135,7 +137,7 @@ impl ActionVariant {
             ActionVariant::AddLabel => "Add label",
             ActionVariant::RemoveLabel => "Remove label",
             ActionVariant::CreatePart => "Create new part",
-            ActionVariant::CopyPart => "Clone part",
+            ActionVariant::ClonePart => "Clone part",
             ActionVariant::RequirePart => "Request part",
             ActionVariant::OrderPart => "Order part",
             ActionVariant::MovePart => "Move part",
@@ -155,7 +157,7 @@ impl ActionVariant {
             ActionVariant::AddLabel => false,
             ActionVariant::RemoveLabel => false,
             ActionVariant::CreatePart => false,
-            ActionVariant::CopyPart => false,
+            ActionVariant::ClonePart => false,
             ActionVariant::RequirePart => true,
             ActionVariant::OrderPart => true,
             ActionVariant::MovePart => true,
@@ -258,7 +260,8 @@ impl App {
             (p, PanelContent::PartsInProjects) if p.contains_parts() => ActionVariant::RequirePart,
             (p, PanelContent::Projects) if p.contains_parts() => ActionVariant::RequirePart,
 
-            (PanelContent::Parts, _) => ActionVariant::CopyPart,
+            (PanelContent::Parts, _) => ActionVariant::ClonePart,
+            (PanelContent::Projects, _) => ActionVariant::ClonePart,
 
             (PanelContent::Locations, _) => ActionVariant::None,
 
@@ -267,7 +270,6 @@ impl App {
 
             (PanelContent::Sources, _) => ActionVariant::None,
 
-            (PanelContent::Projects, _) => ActionVariant::None,
             (_, _) => ActionVariant::None,
         }
     }
@@ -426,7 +428,7 @@ impl App {
                     }
                     ActionVariant::Error => todo!(),
                     ActionVariant::CreatePart => todo!(),
-                    ActionVariant::CopyPart => todo!(),
+                    ActionVariant::ClonePart => todo!(),
                     _ => AppEvents::REDRAW,
                 }
             }
@@ -779,7 +781,12 @@ impl App {
                 AppEvents::REDRAW
             }
             ActionVariant::CreatePart => todo!(),
-            ActionVariant::CopyPart => todo!(),
+            ActionVariant::ClonePart => {
+                if let Some(ev) = self.action_clone_part() {
+                    return ev;
+                }
+                AppEvents::REDRAW
+            },
             ActionVariant::RequirePart => {
                 self.action_dialog_common_move(action);
                 AppEvents::REDRAW
@@ -1465,10 +1472,32 @@ impl App {
         }
     }
 
+    fn make_new_id(&self, name: &str) -> PartId {
+        let mut candidate = self.store.name_to_id(&name).into();
+        loop {
+            if let Some(_part) = self.store.part_by_id(&candidate) {
+                // conflict! generate new id
+                if let Some((prefix, suffix)) = candidate.rsplit_once("--") {
+                    if let Some(suffix_no) = num::BigUint::parse_bytes(suffix.as_bytes(), 36) {
+                        let next_suffix = suffix_no + 1_u32;
+                        candidate = Rc::from([prefix, next_suffix.to_str_radix(36).as_str()].join("--"));
+                    } else {
+                        candidate = Rc::from([prefix, "1"].join("--"));
+                    }
+                } else {
+                    candidate = Rc::from([&candidate, "1"].join("--"));
+                }
+            } else {
+                debug!("Allocated new ID {:?}", candidate);
+                return candidate;
+            }
+        }
+    }
+
     fn create_object_from_dialog_data(&mut self, editor: fn(&mut Part)) -> anyhow::Result<PartId> {
         let name = self.view.create_name.value().trim().to_string();
         let mut part = Part {
-            id: self.store.name_to_id(&name).as_str().into(), // TODO check for collisions
+            id: self.make_new_id(&name),
             filename: None,
             metadata: PartMetadata {
                 id: None,
@@ -1720,6 +1749,23 @@ impl App {
         }
 
         return Some(AppEvents::RELOAD_DATA);
+    }
+
+    fn action_clone_part(&mut self) -> Option<AppEvents> {
+        let item_id = self.get_active_panel_data().item(self.view.get_active_panel_selection(), &self.store).id?;
+        let item = self.store.part_by_id(&item_id)?;
+        let mut new_item = item.clone();
+        let new_id = self.make_new_id(&item.metadata.name);
+        let new_name = [&item.metadata.name, " - clone"].join("");
+        new_item.id = Rc::clone(&new_id);
+        new_item.metadata.id = Some(new_item.id.to_string());
+        new_item.metadata.name = new_name.clone();
+        new_item.filename = None;
+
+        self.store.store_part(&mut new_item);
+        self.store.insert_part_to_cache(new_item);
+
+        Some(AppEvents::RELOAD_DATA_SELECT(new_name))
     }
 }
 

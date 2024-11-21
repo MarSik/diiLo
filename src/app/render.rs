@@ -1,4 +1,5 @@
 use std::cell;
+use std::path::PathBuf;
 
 use itertools::Itertools;
 use ratatui::buffer::Buffer;
@@ -114,6 +115,7 @@ impl Widget for &App {
             if let Some(item_id) = item.id {
                 if let Some(part) = self.store.part_by_id(&item_id) {
                     let mut content: Vec<Line> = vec![];
+                    content.push(format!("id: {}", part.id).into());
                     content.push(format!("name: {}", part.metadata.name).into());
                     content.push(part.metadata.summary.to_string().into());
                     content.push("".into());
@@ -128,6 +130,10 @@ impl Widget for &App {
                     for l in part.content.split('\n') {
                         content.push(l.into());
                     }
+
+                    content.push("".into());
+                    content.push("--".into());
+                    content.push(format!("path: {:?}", part.filename).into());
 
                     let block = Block::bordered()
                         .title(part.metadata.name.as_str())
