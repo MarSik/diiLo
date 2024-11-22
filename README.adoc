@@ -70,7 +70,7 @@ $ cargo run
 
 == Debugging issues
 
-The program writes a detailed log to a cache directory that is by default located in `$HOME/.cache/mspart/mspart.log`
+The program writes a detailed log to a cache directory that is by default located in `$HOME/.cache/diilo/diilo.log`
 
 The verbosity is set to `INFO` by default and can be controlled by environment variables. See https://docs.rs/env_logger/latest/env_logger/#enabling-logging for details of how to control the levels and filters.
 
