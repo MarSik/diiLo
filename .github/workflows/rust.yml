@@ -23,5 +23,5 @@ jobs:
     - name: Run formatter
       run: cargo fmt --all -- --check --verbose
     - name: Run linter
-      run: cargo clippy --all-targets -- -D warnings --verbose
+      run: cargo clippy --all-targets -- -D warnings
 
