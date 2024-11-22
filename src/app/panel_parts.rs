@@ -56,12 +56,12 @@ impl PanelData for PanelPartSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
-            return EnterAction(
+            EnterAction(
                 Box::new(PanelPartLocationsSelection::new(self, idx, item_id)),
                 0,
-            );
+            )
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 

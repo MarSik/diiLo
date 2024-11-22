@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
                 count: csv_ledger.removed.unwrap(),
                 ev: LedgerEvent::TakeFrom(
                     store
-                        .name_to_id(&csv_ledger.location.as_str())
+                        .name_to_id(csv_ledger.location.as_str())
                         .as_str()
                         .into(),
                 ),
@@ -195,10 +195,10 @@ fn main() -> anyhow::Result<()> {
         }
 
         let mut p = Part {
-            id: store.name_to_id(&l).as_str().into(),
+            id: store.name_to_id(l).as_str().into(),
             filename: None,
             metadata: PartMetadata {
-                id: Some(store.name_to_id(&l)),
+                id: Some(store.name_to_id(l)),
                 name: l.clone(),
                 types: HashSet::new(),
                 ..Default::default()

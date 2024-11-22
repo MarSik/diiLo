@@ -40,7 +40,7 @@ fn test_start_stop() -> anyhow::Result<()> {
     app.full_reload()?;
 
     let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
-    let area = buf.area().clone();
+    let area = *buf.area();
     app.render(area, &mut buf);
 
     let event = app.handle_key_event(KeyCode::F(12).into())?;

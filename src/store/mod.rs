@@ -165,150 +165,149 @@ pub struct LedgerEntry {
     pub ev: LedgerEvent,
 }
 
-impl Into<LedgerEntry> for &LedgerEntryDto {
-    fn into(self) -> LedgerEntry {
+impl From<&LedgerEntryDto> for LedgerEntry {
+    fn from(val: &LedgerEntryDto) -> LedgerEntry {
         //The parse_datetime call takes 5 ms and is extremely slow!
         //let t = self.time.clone().map(parse_datetime).unwrap().unwrap();
-        let t = self
+        let t = val
             .time
-            .as_ref()
-            .map(String::as_str)
+            .as_deref()
             .map(DateTime::parse_from_rfc3339)
             .unwrap_or_else(|| Ok(Local::now().fixed_offset()))
             .unwrap();
 
-        if self.cmd_store {
+        if val.cmd_store {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::StoreTo(self.location_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::StoreTo(val.location_id.clone().unwrap().into()),
             }
-        } else if self.cmd_take {
+        } else if val.cmd_take {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::TakeFrom(self.location_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::TakeFrom(val.location_id.clone().unwrap().into()),
             }
-        } else if self.cmd_deliver {
+        } else if val.cmd_deliver {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::DeliverFrom(
-                    self.source_id
+                    val.source_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_return {
+        } else if val.cmd_return {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::ReturnTo(
-                    self.source_id
+                    val.source_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_order {
+        } else if val.cmd_order {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::OrderFrom(
-                    self.source_id
+                    val.source_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_cancel_order {
+        } else if val.cmd_cancel_order {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::CancelOrderFrom(
-                    self.source_id
+                    val.source_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_require && self.location_id.is_some() {
+        } else if val.cmd_require && val.location_id.is_some() {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::RequireIn(self.location_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::RequireIn(val.location_id.clone().unwrap().into()),
             }
-        } else if self.cmd_require && self.project_id.is_some() {
+        } else if val.cmd_require && val.project_id.is_some() {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::RequireInProject(self.project_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::RequireInProject(val.project_id.clone().unwrap().into()),
             }
-        } else if self.cmd_require && self.source_id.is_some() {
+        } else if val.cmd_require && val.source_id.is_some() {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::OrderFrom(self.source_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::OrderFrom(val.source_id.clone().unwrap().into()),
             }
-        } else if self.cmd_solder {
+        } else if val.cmd_solder {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::SolderTo(
-                    self.project_id
+                    val.project_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_unsolder {
+        } else if val.cmd_unsolder {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
+                count: val.count,
+                part: val.part_id.as_str().into(),
                 ev: LedgerEvent::UnsolderFrom(
-                    self.project_id
+                    val.project_id
                         .as_ref()
-                        .or(self.location_id.as_ref())
+                        .or(val.location_id.as_ref())
                         .unwrap()
                         .as_str()
                         .into(),
                 ),
             }
-        } else if self.cmd_set {
+        } else if val.cmd_set {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::ForceCount(self.location_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::ForceCount(val.location_id.clone().unwrap().into()),
             }
         } else {
             LedgerEntry {
                 t,
-                count: self.count,
-                part: self.part_id.as_str().into(),
-                ev: LedgerEvent::TakeFrom(self.location_id.clone().unwrap().into()),
+                count: val.count,
+                part: val.part_id.as_str().into(),
+                ev: LedgerEvent::TakeFrom(val.location_id.clone().unwrap().into()),
             }
         }
     }
@@ -389,8 +388,8 @@ impl Store {
             .try_into()?;
         */
 
-        fs::create_dir_all(&basepath.join("md"))?;
-        fs::create_dir_all(&basepath.join("ledger"))?;
+        fs::create_dir_all(basepath.join("md"))?;
+        fs::create_dir_all(basepath.join("ledger"))?;
 
         let ledger_name = Self::ledger_name_now();
 
@@ -477,12 +476,10 @@ impl Store {
         self.labels.clear();
 
         let dir = walkdir::WalkDir::new(Path::new(&self.basepath).join("md"));
-        for f in dir {
-            if let Ok(f) = f {
-                if f.file_type().is_file() {
-                    let part = Self::load_part(f.path())?;
-                    self.insert_part_to_cache(part);
-                }
+        for f in dir.into_iter().flatten() {
+            if f.file_type().is_file() {
+                let part = Self::load_part(f.path())?;
+                self.insert_part_to_cache(part);
             }
         }
 
@@ -516,10 +513,10 @@ impl Store {
 
         let mut f =
             File::create(part.filename.as_ref().unwrap().clone()).map_err(AppError::IoError)?;
-        f.write(b"---\n").map_err(AppError::IoError)?;
+        f.write_all(b"---\n").map_err(AppError::IoError)?;
         serde_yaml::to_writer(&f, &part.metadata).map_err(AppError::ObjectSerializationError)?;
-        f.write(b"\n---\n").map_err(AppError::IoError)?;
-        f.write(part.content.as_bytes())
+        f.write_all(b"\n---\n").map_err(AppError::IoError)?;
+        f.write_all(part.content.as_bytes())
             .map_err(AppError::IoError)?;
 
         Ok(())
@@ -658,11 +655,9 @@ impl Store {
         let f = File::open(filename)?;
         let f = BufReader::new(f);
         let lines = f.lines();
-        for l in lines {
-            if let Ok(l) = l {
-                let v = serde_keyvalue::from_key_values::<LedgerEntryDto>(l.as_str())?;
-                loaded.push(v);
-            }
+        for l in lines.map_while(Result::ok) {
+            let v = serde_keyvalue::from_key_values::<LedgerEntryDto>(l.as_str())?;
+            loaded.push(v);
         }
 
         // Inject time to each entry based on the last known time
@@ -686,13 +681,11 @@ impl Store {
         let mut output = Vec::new();
 
         let dir = std::fs::read_dir(Path::new(&self.basepath).join("ledger"))?;
-        for f in dir {
-            if let Ok(f) = f {
-                if let Ok(ft) = f.file_type() {
-                    if ft.is_file() {
-                        let events = self.load_events_from_file(f.path().to_str().unwrap())?;
-                        output.extend(events);
-                    }
+        for f in dir.flatten() {
+            if let Ok(ft) = f.file_type() {
+                if ft.is_file() {
+                    let events = self.load_events_from_file(f.path().to_str().unwrap())?;
+                    output.extend(events);
                 }
             }
         }
@@ -776,8 +769,8 @@ impl Store {
 
     pub fn all_label_keys(&self) -> Vec<(String, usize)> {
         self.labels
-            .iter()
-            .map(|(k, _)| (k.clone(), self.labels.get(k).unwrap().len()))
+            .keys()
+            .map(|k| (k.clone(), self.labels.get(k).unwrap().len()))
             .collect()
     }
 

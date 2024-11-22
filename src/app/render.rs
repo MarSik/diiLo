@@ -16,7 +16,7 @@ use super::App;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let full_area = area.clone();
+        let full_area = area;
 
         let layout = Layout::vertical([
             Constraint::Length(1),
@@ -33,13 +33,13 @@ impl Widget for &App {
         let layout_fkeys_low = layout[3];
         let layout_fkeys_high = layout[4];
 
-        let (layout_panel_a, layout_panel_b, layout_info) = if self.view.layout == ViewLayout::SPLIT
+        let (layout_panel_a, layout_panel_b, layout_info) = if self.view.layout == ViewLayout::Split
         {
             let layout =
                 Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                     .split(layout_panels);
             (Some(layout[0]), Some(layout[1]), None)
-        } else if self.view.layout == ViewLayout::WIDE {
+        } else if self.view.layout == ViewLayout::Wide {
             match self.view.active {
                 super::view::ActivePanel::PanelA => (Some(layout_panels), None, None),
                 super::view::ActivePanel::PanelB => (None, Some(layout_panels), None),
@@ -104,7 +104,7 @@ impl Widget for &App {
 
         if let Some(area) = layout_info {
             // Render info
-            Clear::default().render(area, buf);
+            Clear.render(area, buf);
 
             let item = self
                 .get_active_panel_data()
@@ -237,7 +237,7 @@ impl Widget for &App {
 
         for idx in 1..=6 {
             let t = Line::from(vec![
-                format!("F{}", idx).bold().into(),
+                format!("F{}", idx).bold(),
                 " ".into(),
                 actions[idx - 1].into(),
                 " ".into(),
@@ -250,7 +250,7 @@ impl Widget for &App {
 
         for idx in 7..=12 {
             let t = Line::from(vec![
-                format!("F{}", idx).bold().into(),
+                format!("F{}", idx).bold(),
                 " ".into(),
                 actions[idx - 1].into(),
                 " ".into(),
@@ -276,15 +276,15 @@ impl Widget for &App {
             .gray()
             .render(layout_status, buf);
 
-        if self.view.action_count_dialog == DialogState::VISIBLE {
+        if self.view.action_count_dialog == DialogState::Visible {
             self.action_count_dialog(full_area, buf);
         }
 
-        if self.view.create_dialog == DialogState::VISIBLE {
+        if self.view.create_dialog == DialogState::Visible {
             self.create_dialog(full_area, buf);
         }
 
-        if self.view.delete_dialog == DialogState::VISIBLE {
+        if self.view.delete_dialog == DialogState::Visible {
             let item = self.view.delete_item.clone().unwrap();
             self.alert_dialog(
                 full_area,
@@ -298,7 +298,7 @@ impl Widget for &App {
             );
         }
 
-        if self.view.alert_dialog == DialogState::VISIBLE {
+        if self.view.alert_dialog == DialogState::Visible {
             self.alert_dialog(
                 full_area,
                 buf,
@@ -310,6 +310,7 @@ impl Widget for &App {
 }
 
 impl App {
+    #[allow(clippy::too_many_arguments)]
     fn render_panel(
         &self,
         name: &str,
@@ -412,9 +413,7 @@ impl App {
                     summary_length.min(cell_length.saturating_sub(name_length + 4 + data_length));
                 let padding_length =
                     cell_length.saturating_sub(name_length + data_length + summary_length + 4);
-                let padding = std::iter::repeat(" ")
-                    .take(padding_length)
-                    .collect::<String>();
+                let padding = " ".repeat(padding_length);
 
                 // Split according to UTF-8 character boundaries
                 let summary_split = v
@@ -453,7 +452,7 @@ impl App {
 
     fn action_count_dialog(&self, area: Rect, buf: &mut Buffer) {
         let area = Self::center(area, Constraint::Percentage(50), Constraint::Length(20));
-        Clear::default().render(area, buf);
+        Clear.render(area, buf);
 
         let block = Block::bordered()
             .border_set(border::DOUBLE)
@@ -542,7 +541,7 @@ impl App {
 
     fn create_dialog(&self, area: Rect, buf: &mut Buffer) {
         let area = Self::center(area, Constraint::Length(60), Constraint::Length(20));
-        Clear::default().render(area, buf);
+        Clear.render(area, buf);
 
         let block = Block::bordered()
             .border_set(border::EMPTY)
@@ -566,7 +565,7 @@ impl App {
         let input_width = block_area[1].width - 3; // keep 2 for borders and 1 for cursor
         let mut input_block = Block::bordered().border_type(BorderType::Plain).black();
 
-        if self.view.create_idx == CreateMode::NAME {
+        if self.view.create_idx == CreateMode::Name {
             input_block = input_block.yellow().border_type(BorderType::Thick);
         } else {
             input_block = input_block.black().border_type(BorderType::Plain);
@@ -587,7 +586,7 @@ impl App {
             .block(input_block.clone().title("name"))
             .render(block_area[0], buf);
 
-        if self.view.create_idx == CreateMode::SUMMARY {
+        if self.view.create_idx == CreateMode::Summary {
             input_block = input_block.yellow().border_type(BorderType::Thick);
         } else {
             input_block = input_block.black().border_type(BorderType::Plain);
@@ -622,7 +621,7 @@ impl App {
         let mut scrollbar_state = ScrollbarState::new(self.view.create_hints.len());
 
         let (hints_highlight_style, hints_hl_symbol) =
-            if let CreateMode::HINT(hint) = self.view.create_idx {
+            if let CreateMode::Hint(hint) = self.view.create_idx {
                 table_state = table_state.with_selected(hint);
                 scrollbar_state = scrollbar_state.position(hint);
                 (Style::new().on_yellow(), "> ")
@@ -644,7 +643,7 @@ impl App {
         );
 
         let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
-        let scrollbar = if let CreateMode::HINT(_) = self.view.create_idx {
+        let scrollbar = if let CreateMode::Hint(_) = self.view.create_idx {
             scrollbar.style(Style::new().yellow())
         } else {
             scrollbar
@@ -661,7 +660,7 @@ impl App {
         msg: T,
     ) {
         let area = Self::center(area, Constraint::Length(60), Constraint::Length(18));
-        Clear::default().render(area, buf);
+        Clear.render(area, buf);
 
         let block = Block::bordered()
             .border_set(border::DOUBLE)

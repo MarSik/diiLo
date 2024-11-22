@@ -26,7 +26,7 @@ impl PanelLabelSelection {
             .iter()
             .map(|(label_key, count)| {
                 PanelItem::new(
-                    &label_key,
+                    label_key,
                     "",
                     &count.to_string(),
                     Some(&label_key.as_str().into()),
@@ -53,16 +53,16 @@ impl PanelData for PanelLabelSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
-            return EnterAction(
+            EnterAction(
                 Box::new(PanelLabelValueSelection::new(
                     self,
                     item_id.to_string(),
                     idx,
                 )),
                 0,
-            );
+            )
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 
@@ -131,7 +131,7 @@ impl PanelLabelValueSelection {
             .iter()
             .map(|(label_value, count)| {
                 PanelItem::new(
-                    &label_value,
+                    label_value,
                     "",
                     &count.to_string(),
                     Some(&label_value.as_str().into()),
@@ -158,14 +158,14 @@ impl PanelData for PanelLabelValueSelection {
 
         let label_key = self.key.clone();
         if let Some(item_id) = self.cached.item_id(idx, || self.load_cache(store)) {
-            return EnterAction(
+            EnterAction(
                 Box::new(PanelPartByLabelSelection::new(
                     self, idx, &label_key, &item_id,
                 )),
                 0,
-            );
+            )
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 
@@ -275,12 +275,12 @@ impl PanelData for PanelPartByLabelSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, || self.load_cache(store)) {
-            return EnterAction(
+            EnterAction(
                 Box::new(PanelPartLocationsSelection::new(self, idx, item_id)),
                 0,
-            );
+            )
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 

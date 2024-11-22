@@ -293,7 +293,7 @@ impl PanelItem {
             name: name.to_string(),
             summary: summary.to_string(),
             data: data.to_string(),
-            id: id.map(|s| s.clone()),
+            id: id.cloned(),
         }
     }
 }

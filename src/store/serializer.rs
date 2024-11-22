@@ -62,7 +62,7 @@ impl LedgerSerializer {
     fn serialize_number<T: Display>(&mut self, v: T) -> Result<(), LedgerError> {
         self.maybe_equals()?;
         self.w
-            .write(format!("{}", v).as_bytes())
+            .write_all(format!("{}", v).as_bytes())
             .map_err(|_| LedgerError::IoError)?;
         Ok(())
     }
@@ -73,7 +73,7 @@ impl LedgerSerializer {
             return Ok(());
         }
 
-        self.w.write(",".as_bytes())?;
+        self.w.write_all(",".as_bytes())?;
         Ok(())
     }
 
@@ -82,13 +82,13 @@ impl LedgerSerializer {
     fn maybe_equals(&mut self) -> Result<(), LedgerError> {
         if self.equals_needed {
             self.equals_needed = false;
-            self.w.write("=".as_bytes())?;
+            self.w.write_all("=".as_bytes())?;
         }
         Ok(())
     }
 }
 
-impl<'a> ser::Serializer for &'a mut LedgerSerializer {
+impl ser::Serializer for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -115,9 +115,9 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         }
 
         if v {
-            self.w.write("1".as_bytes())?;
+            self.w.write_all("1".as_bytes())?;
         } else {
-            self.w.write("0".as_bytes())?;
+            self.w.write_all("0".as_bytes())?;
         }
         Ok(())
     }
@@ -168,24 +168,24 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         self.maybe_equals()?;
-        self.w.write("\"".as_bytes())?;
-        self.w.write(
+        self.w.write_all("\"".as_bytes())?;
+        self.w.write_all(
             v.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
                 .as_bytes(),
         )?;
-        self.w.write("\"".as_bytes())?;
+        self.w.write_all("\"".as_bytes())?;
         Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         self.maybe_equals()?;
-        self.w.write("b\"".as_bytes())?;
+        self.w.write_all("b\"".as_bytes())?;
         for b in v {
-            self.w.write(format!("{:02x}", b).as_bytes())?;
+            self.w.write_all(format!("{:02x}", b).as_bytes())?;
         }
-        self.w.write("\"".as_bytes())?;
+        self.w.write_all("\"".as_bytes())?;
         Ok(())
     }
 
@@ -209,7 +209,7 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
+        self.w.write_all(name.as_bytes())?;
         Ok(())
     }
 
@@ -220,9 +220,9 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write(b"::")?;
-        self.w.write(variant.as_bytes())?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all(b"::")?;
+        self.w.write_all(variant.as_bytes())?;
         Ok(())
     }
 
@@ -235,8 +235,8 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         T: ?Sized + ser::Serialize,
     {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write(b"{")?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all(b"{")?;
         self.first_item = true;
         value.serialize(self)
     }
@@ -252,10 +252,10 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         T: ?Sized + ser::Serialize,
     {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write(b"::")?;
-        self.w.write(variant.as_bytes())?;
-        self.w.write(b"{")?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all(b"::")?;
+        self.w.write_all(variant.as_bytes())?;
+        self.w.write_all(b"{")?;
         self.first_item = true;
         value.serialize(self)
     }
@@ -263,7 +263,7 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         self.maybe_equals()?;
         if self.level > 0 {
-            self.w.write("[".as_bytes())?;
+            self.w.write_all("[".as_bytes())?;
         }
         self.level += 1;
         self.first_item = true;
@@ -273,7 +273,7 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
         self.maybe_equals()?;
         if self.level > 0 {
-            self.w.write("(".as_bytes())?;
+            self.w.write_all("(".as_bytes())?;
         }
         self.level += 1;
         self.first_item = true;
@@ -286,8 +286,8 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write("(".as_bytes())?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all("(".as_bytes())?;
         self.first_item = true;
         Ok(self)
     }
@@ -300,10 +300,10 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write(b"::")?;
-        self.w.write(variant.as_bytes())?;
-        self.w.write(b"{")?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all(b"::")?;
+        self.w.write_all(variant.as_bytes())?;
+        self.w.write_all(b"{")?;
         self.first_item = true;
         Ok(self)
     }
@@ -311,7 +311,7 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         self.maybe_equals()?;
         if self.level > 0 {
-            self.w.write("{".as_bytes())?;
+            self.w.write_all("{".as_bytes())?;
         }
         self.level += 1;
         self.first_item = true;
@@ -325,7 +325,7 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
     ) -> Result<Self::SerializeStruct, Self::Error> {
         self.maybe_equals()?;
         if self.level > 0 {
-            self.w.write(b"{")?;
+            self.w.write_all(b"{")?;
         }
         self.level += 1;
         self.first_item = true;
@@ -340,15 +340,15 @@ impl<'a> ser::Serializer for &'a mut LedgerSerializer {
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         self.maybe_equals()?;
-        self.w.write(name.as_bytes())?;
-        self.w.write(b"::")?;
-        self.w.write(variant.as_bytes())?;
+        self.w.write_all(name.as_bytes())?;
+        self.w.write_all(b"::")?;
+        self.w.write_all(variant.as_bytes())?;
         self.first_item = true;
         Ok(self)
     }
 }
 
-impl<'a> ser::SerializeStruct for &'a mut LedgerSerializer {
+impl ser::SerializeStruct for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -358,7 +358,7 @@ impl<'a> ser::SerializeStruct for &'a mut LedgerSerializer {
         T: ?Sized + ser::Serialize,
     {
         self.first_comma()?;
-        self.w.write(key.as_bytes())?;
+        self.w.write_all(key.as_bytes())?;
         self.equals_needed = true;
         value.serialize(&mut **self)
     }
@@ -366,15 +366,15 @@ impl<'a> ser::SerializeStruct for &'a mut LedgerSerializer {
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.level = self.level.saturating_sub(1);
         if self.level > 0 {
-            self.w.write("}".as_bytes())?;
+            self.w.write_all("}".as_bytes())?;
         } else {
-            self.w.write("\n".as_bytes())?;
+            self.w.write_all("\n".as_bytes())?;
         }
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeTuple for &'a mut LedgerSerializer {
+impl ser::SerializeTuple for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -390,15 +390,15 @@ impl<'a> ser::SerializeTuple for &'a mut LedgerSerializer {
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.level = self.level.saturating_sub(1);
         if self.level > 0 {
-            self.w.write(b")")?;
+            self.w.write_all(b")")?;
         } else {
-            self.w.write(b"\n")?;
+            self.w.write_all(b"\n")?;
         }
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeTupleStruct for &'a mut LedgerSerializer {
+impl ser::SerializeTupleStruct for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -412,12 +412,12 @@ impl<'a> ser::SerializeTupleStruct for &'a mut LedgerSerializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.w.write(b")")?;
+        self.w.write_all(b")")?;
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeMap for &'a mut LedgerSerializer {
+impl ser::SerializeMap for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -442,15 +442,15 @@ impl<'a> ser::SerializeMap for &'a mut LedgerSerializer {
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.level = self.level.saturating_sub(1);
         if self.level > 0 {
-            self.w.write(b")")?;
+            self.w.write_all(b")")?;
         } else {
-            self.w.write(b"\n")?;
+            self.w.write_all(b"\n")?;
         }
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeSeq for &'a mut LedgerSerializer {
+impl ser::SerializeSeq for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -467,15 +467,15 @@ impl<'a> ser::SerializeSeq for &'a mut LedgerSerializer {
     fn end(self) -> Result<Self::Ok, Self::Error> {
         self.level = self.level.saturating_sub(1);
         if self.level > 0 {
-            self.w.write(b"]")?;
+            self.w.write_all(b"]")?;
         } else {
-            self.w.write(b"\n")?;
+            self.w.write_all(b"\n")?;
         }
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeStructVariant for &'a mut LedgerSerializer {
+impl ser::SerializeStructVariant for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -485,18 +485,18 @@ impl<'a> ser::SerializeStructVariant for &'a mut LedgerSerializer {
         T: ?Sized + ser::Serialize,
     {
         self.first_comma()?;
-        self.w.write(key.as_bytes())?;
+        self.w.write_all(key.as_bytes())?;
         self.equals_needed = true;
         value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.w.write(b"}")?;
+        self.w.write_all(b"}")?;
         Ok(())
     }
 }
 
-impl<'a> ser::SerializeTupleVariant for &'a mut LedgerSerializer {
+impl ser::SerializeTupleVariant for &mut LedgerSerializer {
     type Ok = ();
 
     type Error = LedgerError;
@@ -509,7 +509,7 @@ impl<'a> ser::SerializeTupleVariant for &'a mut LedgerSerializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        self.w.write(b")")?;
+        self.w.write_all(b")")?;
         Ok(())
     }
 }

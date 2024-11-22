@@ -37,19 +37,19 @@ pub struct View {
 
 impl View {
     pub fn hot(&self) -> Hot {
-        if self.alert_dialog == DialogState::VISIBLE {
+        if self.alert_dialog == DialogState::Visible {
             return Hot::AlertDialog;
         }
 
-        if self.delete_dialog == DialogState::VISIBLE {
+        if self.delete_dialog == DialogState::Visible {
             return Hot::DeleteDialog;
         }
 
-        if self.create_dialog == DialogState::VISIBLE {
+        if self.create_dialog == DialogState::Visible {
             return Hot::CreatePartDialog;
         }
 
-        if self.action_count_dialog == DialogState::VISIBLE {
+        if self.action_count_dialog == DialogState::Visible {
             return Hot::ActionCountDialog;
         }
 
@@ -61,10 +61,10 @@ impl View {
             return Hot::PanelInfo;
         }
 
-        return match self.active {
+        match self.active {
             ActivePanel::PanelA => Hot::PanelA,
             ActivePanel::PanelB => Hot::PanelB,
-        };
+        }
     }
 
     pub fn update_active_panel(&mut self, cb: impl Fn(&mut PanelState)) {
@@ -99,9 +99,9 @@ impl View {
         self.cancel_all();
 
         self.layout = match self.layout {
-            ViewLayout::SPLIT => ViewLayout::INFO,
-            ViewLayout::INFO => ViewLayout::WIDE,
-            ViewLayout::WIDE => ViewLayout::SPLIT,
+            ViewLayout::Split => ViewLayout::Info,
+            ViewLayout::Info => ViewLayout::Wide,
+            ViewLayout::Wide => ViewLayout::Split,
         }
     }
 
@@ -145,18 +145,18 @@ impl View {
 
     pub(crate) fn show_action_dialog(&mut self, action: ActionVariant, count: usize) {
         self.cancel();
-        self.action_count_dialog = DialogState::VISIBLE;
+        self.action_count_dialog = DialogState::Visible;
         self.action_count_dialog_action = action;
         self.action_count_dialog_count = count;
         self.action_count_dialog_typing = false;
     }
 
     pub(crate) fn hide_action_dialog(&mut self) {
-        self.action_count_dialog = DialogState::HIDDEN;
+        self.action_count_dialog = DialogState::Hidden;
     }
 
     pub(crate) fn hide_create_dialog(&mut self) {
-        self.create_dialog = DialogState::HIDDEN;
+        self.create_dialog = DialogState::Hidden;
     }
 
     pub(crate) fn action_dialog_count_up(&mut self) {
@@ -200,11 +200,11 @@ impl View {
     }
 
     pub(crate) fn hide_delete_dialog(&mut self) {
-        self.delete_dialog = DialogState::HIDDEN;
+        self.delete_dialog = DialogState::Hidden;
     }
 
     pub(crate) fn hide_alert_dialog(&mut self) {
-        self.alert_dialog = DialogState::HIDDEN;
+        self.alert_dialog = DialogState::Hidden;
     }
 
     pub(crate) fn scroll_to(&mut self, arg: usize) {
@@ -231,21 +231,21 @@ impl View {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum DialogState {
     #[default]
-    HIDDEN,
-    VISIBLE,
+    Hidden,
+    Visible,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum ViewLayout {
     #[default]
-    SPLIT,
-    WIDE,
-    INFO,
+    Split,
+    Wide,
+    Info,
 }
 
 impl ViewLayout {
     pub fn is_dual_panel(&self) -> bool {
-        *self == Self::SPLIT
+        *self == Self::Split
     }
 }
 
@@ -276,26 +276,26 @@ pub struct PanelState {
 #[derive(Debug, Default, PartialEq, PartialOrd)]
 pub enum CreateMode {
     #[default]
-    NAME,
-    SUMMARY,
-    HINT(usize),
+    Name,
+    Summary,
+    Hint(usize),
 }
 
 impl CreateMode {
     pub fn next(&self) -> Self {
         match self {
-            CreateMode::NAME => CreateMode::SUMMARY,
-            CreateMode::SUMMARY => CreateMode::HINT(0),
-            CreateMode::HINT(n) => CreateMode::HINT(n + 1),
+            CreateMode::Name => CreateMode::Summary,
+            CreateMode::Summary => CreateMode::Hint(0),
+            CreateMode::Hint(n) => CreateMode::Hint(n + 1),
         }
     }
 
     pub fn prev(&self) -> Self {
         match self {
-            CreateMode::NAME => CreateMode::NAME,
-            CreateMode::SUMMARY => CreateMode::NAME,
-            CreateMode::HINT(n) if *n == 0 => CreateMode::SUMMARY,
-            CreateMode::HINT(n) => CreateMode::HINT(n - 1),
+            CreateMode::Name => CreateMode::Name,
+            CreateMode::Summary => CreateMode::Name,
+            CreateMode::Hint(n) if *n == 0 => CreateMode::Summary,
+            CreateMode::Hint(n) => CreateMode::Hint(n - 1),
         }
     }
 }

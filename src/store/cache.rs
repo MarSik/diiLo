@@ -97,6 +97,12 @@ pub struct CountCache {
     all: HashSet<Rc<CountCacheEntry>>,
 }
 
+impl Default for CountCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CountCache {
     pub fn new() -> Self {
         Self {

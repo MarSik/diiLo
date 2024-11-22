@@ -51,25 +51,21 @@ impl App {
                 }
             }
             KeyCode::Right => {
-                if self.view.layout == ViewLayout::SPLIT {
+                if self.view.layout == ViewLayout::Split {
                     self.view.active = ActivePanel::PanelB
-                } else if self.view.layout == ViewLayout::WIDE {
+                } else if self.view.layout == ViewLayout::Wide {
                     // NOP
-                } else if self.view.active == ActivePanel::PanelA {
-                    self.view.active_info = true;
                 } else {
-                    self.view.active_info = false;
+                    self.view.active_info = self.view.active == ActivePanel::PanelA;
                 }
             }
             KeyCode::Left => {
-                if self.view.layout == ViewLayout::SPLIT {
+                if self.view.layout == ViewLayout::Split {
                     self.view.active = ActivePanel::PanelA
-                } else if self.view.layout == ViewLayout::WIDE {
+                } else if self.view.layout == ViewLayout::Wide {
                     // NOP
-                } else if self.view.active == ActivePanel::PanelB {
-                    self.view.active_info = true;
                 } else {
-                    self.view.active_info = false;
+                    self.view.active_info = self.view.active == ActivePanel::PanelB;
                 }
             }
             KeyCode::Home => self.view.scroll_to(0),
@@ -109,7 +105,7 @@ impl App {
                 _ => {}
             },
             Hot::CreatePartDialog => {
-                let field = if self.view.create_idx == CreateMode::NAME {
+                let field = if self.view.create_idx == CreateMode::Name {
                     &mut self.view.create_name
                 } else {
                     &mut self.view.create_summary
@@ -148,12 +144,12 @@ impl App {
                     }
                     KeyCode::Down | KeyCode::Tab => {
                         self.view.create_idx = self.view.create_idx.next();
-                        if let CreateMode::HINT(h) = self.view.create_idx {
+                        if let CreateMode::Hint(h) = self.view.create_idx {
                             if self.view.create_hints.is_empty() {
-                                self.view.create_idx = CreateMode::SUMMARY;
+                                self.view.create_idx = CreateMode::Summary;
                             } else if h >= self.view.create_hints.len() {
                                 self.view.create_idx =
-                                    CreateMode::HINT(self.view.create_hints.len() - 1);
+                                    CreateMode::Hint(self.view.create_hints.len() - 1);
                             }
                         }
                     }
@@ -239,9 +235,7 @@ impl App {
                 | KeyCode::PageUp => return Ok(self.handle_global_key_event(key_event)?),
                 _ => {}
             },
-            _ => match key_event.code {
-                _ => return Ok(self.handle_global_key_event(key_event)?),
-            },
+            _ => return Ok(self.handle_global_key_event(key_event)?),
         }
 
         Ok(AppEvents::Redraw)

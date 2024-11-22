@@ -63,9 +63,9 @@ impl PanelData for PanelSourceSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
-            return EnterAction(Box::new(PanelSourcesMenu::new(self, idx, &item_id)), 0);
+            EnterAction(Box::new(PanelSourcesMenu::new(self, idx, &item_id)), 0)
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 
@@ -187,7 +187,7 @@ impl PanelData for PanelSourcesMenu {
             .part_by_id(&self.source_id)
             .map(|p| p.metadata.name.clone())
             .unwrap_or("<unknown>".to_string());
-        vec![self.parent.panel_title(store), loc].join(" / ")
+        [self.parent.panel_title(store), loc].join(" / ")
     }
 
     fn reload(&mut self, store: &Store) {
@@ -207,7 +207,7 @@ impl PanelData for PanelSourcesMenu {
     }
 
     fn item_name(&self, idx: usize, _store: &Store) -> String {
-        return self.data[idx].name.clone();
+        self.data[idx].name.clone()
     }
 
     fn item(&self, idx: usize, _store: &Store) -> PanelItem {

@@ -121,7 +121,7 @@ fn open_in_editor(app: &mut App, part_id: std::rc::Rc<str>) -> anyhow::Result<St
 
     let temp_dir = TempDir::new("diilo-edit")?;
 
-    let mut temp_file = temp_dir.path().join(&part.id.to_string());
+    let mut temp_file = temp_dir.path().join(part.id.to_string());
     temp_file.set_extension("md");
 
     debug!(
@@ -167,14 +167,12 @@ fn open_in_editor(app: &mut App, part_id: std::rc::Rc<str>) -> anyhow::Result<St
 
             app.reload_part(&new_part);
             app.update_status(format!("{} edited and reloaded", new_part.id).as_str());
-            return Ok(new_part.metadata.name);
+            Ok(new_part.metadata.name)
         }
-        Err(err) => {
-            return Err(anyhow::format_err!(
-                "the new content could not be parsed: {}",
-                err
-            ));
-        }
+        Err(err) => Err(anyhow::format_err!(
+            "the new content could not be parsed: {}",
+            err
+        )),
     }
 }
 

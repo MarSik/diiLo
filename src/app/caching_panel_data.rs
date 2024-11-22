@@ -30,11 +30,11 @@ impl ParentPanel {
             .part_by_id(object_id)
             .map(|p| p.metadata.name.clone())
             .unwrap_or("<unknown>".to_string());
-        vec![self.parent.panel_title(store), loc].join(" / ")
+        [self.parent.panel_title(store), loc].join(" / ")
     }
 
     pub fn panel_title_const(&self, store: &Store, name: &str) -> String {
-        vec![self.parent.panel_title(store), name.to_string()].join(" / ")
+        [self.parent.panel_title(store), name.to_string()].join(" / ")
     }
 }
 
@@ -43,19 +43,15 @@ impl ParentPanel {
 pub fn panel_reload(panel: &mut Box<dyn PanelData>, item_idx: usize, store: &Store) -> usize {
     let item_name = panel.item_name(item_idx, store);
     panel.reload(store);
-    let new_idx = if let Some(new_idx) = panel.item_idx(&item_name, store) {
-        new_idx
-    } else {
-        0
-    };
+    let new_idx = panel.item_idx(&item_name, store).unwrap_or(0);
 
     // The item_idx can return an id after the last element.
     // Make sure we catch that.
     let max = panel.len(store).saturating_sub(1);
     if new_idx > max {
-        return max;
+        max
     } else {
-        return new_idx;
+        new_idx
     }
 }
 

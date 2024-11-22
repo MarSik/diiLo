@@ -63,12 +63,12 @@ impl PanelData for PanelProjectSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
-            return EnterAction(
+            EnterAction(
                 Box::new(PanelProjectPartsSelection::new(self, idx, item_id)),
                 0,
-            );
+            )
         } else {
-            return EnterAction(self, idx);
+            EnterAction(self, idx)
         }
     }
 
