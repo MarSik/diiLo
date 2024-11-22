@@ -2,7 +2,7 @@
 
 set -eu
 
-if ! cargo fmt -- --check
+if ! cargo fmt --all -- --check
 then
     echo "There are some code style issues."
     echo "Run cargo fmt first."
@@ -15,7 +15,7 @@ then
     exit 1
 fi
 
-if ! cargo test
+if ! cargo test --all-targets
 then
     echo "There are some test issues."
     exit 1
