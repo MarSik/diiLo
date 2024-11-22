@@ -37,11 +37,11 @@ impl PanelData for PanelTypeSelection {
 
     fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         match idx {
-            0 => EnterAction(Box::new(PanelPartSelection::new(self)), 0),
-            1 => EnterAction(Box::new(PanelProjectSelection::new(self)), 0),
-            2 => EnterAction(Box::new(PanelLabelSelection::new(self)), 0),
-            3 => EnterAction(Box::new(PanelLocationSelection::new(self)), 0),
-            4 => EnterAction(Box::new(PanelSourceSelection::new(self)), 0),
+            0 => EnterAction(Box::new(PanelPartSelection::new(self, idx)), 0),
+            1 => EnterAction(Box::new(PanelProjectSelection::new(self, idx)), 0),
+            2 => EnterAction(Box::new(PanelLabelSelection::new(self, idx)), 0),
+            3 => EnterAction(Box::new(PanelLocationSelection::new(self, idx)), 0),
+            4 => EnterAction(Box::new(PanelSourceSelection::new(self, idx)), 0),
             _ => EnterAction(self, idx),
         }
     }
@@ -78,7 +78,12 @@ impl PanelData for PanelTypeSelection {
         false
     }
 
-    fn item_idx(&self, _id: &str, _store: &Store) -> Option<usize> {
+    fn item_idx(&self, name: &str, _store: &Store) -> Option<usize> {
+        for (idx, item) in self.data.iter().enumerate() {
+            if item.name == name {
+                return Some(idx);
+            }
+        }
         None
     }
 

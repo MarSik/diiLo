@@ -15,9 +15,9 @@ pub struct PanelLocationSelection {
 }
 
 impl PanelLocationSelection {
-    pub fn new(parent: Box<dyn PanelData>) -> Self {
+    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize) -> Self {
         Self {
-            parent: ParentPanel::new(parent, 0),
+            parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
         }
     }
