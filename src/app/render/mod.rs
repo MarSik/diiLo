@@ -8,11 +8,14 @@ use ratatui::widgets::{
     Block, BorderType, Borders, Cell, Clear, Padding, Paragraph, Row, Scrollbar, ScrollbarState,
     StatefulWidget, Table, TableState, Widget, Wrap,
 };
+use render_icons::DrawFixed6x3Icon;
 use tui_big_text::{BigText, PixelSize};
 
 use super::model::PanelData;
 use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLayout};
 use super::App;
+
+mod render_icons;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -451,7 +454,7 @@ impl App {
     }
 
     fn action_count_dialog(&self, area: Rect, buf: &mut Buffer) {
-        let area = Self::center(area, Constraint::Percentage(50), Constraint::Length(20));
+        let area = Self::center(area, Constraint::Length(60), Constraint::Length(20));
         Clear.render(area, buf);
 
         let block = Block::bordered()
@@ -466,14 +469,32 @@ impl App {
         block.render(area, buf);
 
         let block_area = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(3),
+            Constraint::Length(4),
+            Constraint::Length(4),
             Constraint::Min(8),
-            Constraint::Length(2),
         ])
         .split(block_area);
 
+        let action_symbol = match self.view.action_count_dialog_action {
+            super::ActionVariant::None => render_icons::EMPTY,
+            super::ActionVariant::Error => todo!(),
+            super::ActionVariant::AddLabel => render_icons::LABEL,
+            super::ActionVariant::RemoveLabel => render_icons::LABEL_X,
+            super::ActionVariant::CreatePart => todo!(),
+            super::ActionVariant::ClonePart => todo!(),
+            super::ActionVariant::RequirePart => render_icons::REQUIRE,
+            super::ActionVariant::OrderPart => render_icons::ORDER,
+            super::ActionVariant::MovePart => render_icons::MOVE,
+            super::ActionVariant::DeliverPart => render_icons::TRUCK,
+            super::ActionVariant::SolderPart => render_icons::SOLDER,
+            super::ActionVariant::UnsolderPart => render_icons::UNSOLDER,
+            super::ActionVariant::OrderPartLocal => render_icons::ORDER,
+            super::ActionVariant::RequirePartLocal => render_icons::REQUIRE,
+            super::ActionVariant::Delete => render_icons::DELETE,
+        };
+
         if self.view.action_count_dialog_action.countable() {
+            // Count area
             BigText::builder()
                 .pixel_size(PixelSize::Full)
                 .style(Style::new().blue())
@@ -488,46 +509,51 @@ impl App {
         let source_idx = self.view.get_active_panel_selection();
         let source_name = self
             .get_active_panel_data()
-            .item_name(source_idx, &self.store)
-            .bold()
-            .blue();
+            .item_name(source_idx, &self.store);
         let source_summary = self
             .get_active_panel_data()
-            .item_summary(source_idx, &self.store)
-            .blue();
+            .item_summary(source_idx, &self.store);
 
-        Paragraph::new(self.view.action_count_dialog_action.description())
-            .black()
-            .alignment(ratatui::layout::Alignment::Left)
-            .render(block_area[0], buf);
+        let source_area =
+            Layout::horizontal([Constraint::Length(8), Constraint::Min(8)]).split(block_area[0]);
+
+        // Action icon
+        DrawFixed6x3Icon::with_icon(action_symbol)
+            .with_style(Style::new().blue())
+            .render(source_area[0], buf);
 
         Paragraph::new(vec![
-            Line::from(vec![" ".into(), source_name]),
-            Line::from(vec!["   ".into(), source_summary]),
+            Line::from(vec![self
+                .view
+                .action_count_dialog_action
+                .description()
+                .blue()
+                .bold()]),
+            Line::from(vec![source_name.black().bold()]),
+            Line::from(vec![source_summary.dark_gray()]),
         ])
-        .blue()
-        .bold()
         .alignment(ratatui::layout::Alignment::Left)
-        .render(block_area[1], buf);
+        .render(source_area[1], buf);
 
         if self.view.action_count_dialog_action.dual_panel() {
+            let destination_area = Layout::horizontal([Constraint::Length(8), Constraint::Min(8)])
+                .split(block_area[1]);
+
             let destination_idx = self.view.get_inactive_panel_selection();
             let destination_name = self
                 .get_inactive_panel_data()
-                .item_name(destination_idx, &self.store)
-                .bold()
-                .blue();
+                .item_name(destination_idx, &self.store);
             let destination_summary = self
                 .get_inactive_panel_data()
-                .item_summary(destination_idx, &self.store)
-                .blue();
+                .item_summary(destination_idx, &self.store);
 
             Paragraph::new(vec![
-                Line::from(vec!["-> to ".black(), destination_name]),
-                Line::from(destination_summary),
+                Line::from(vec!["-> to ".blue().bold()]),
+                Line::from(vec![destination_name.black().bold()]),
+                Line::from(destination_summary.dark_gray()),
             ])
-            .alignment(ratatui::layout::Alignment::Right)
-            .render(block_area[3], buf);
+            .alignment(ratatui::layout::Alignment::Left)
+            .render(destination_area[1], buf);
         }
     }
 
@@ -675,7 +701,7 @@ impl App {
         let rows = Layout::vertical([Constraint::Length(4), Constraint::Min(1)]).split(block_inner);
 
         BigText::builder()
-            .pixel_size(PixelSize::ThirdHeight)
+            .pixel_size(PixelSize::Sextant)
             .lines(vec![title.into()])
             .build()
             .render(rows[0], buf);
