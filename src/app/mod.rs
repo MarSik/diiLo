@@ -113,7 +113,7 @@ impl ActionVariant {
     }
 
     pub fn dual_panel(self) -> bool {
-        matches!(
+        !matches!(
             self,
             ActionVariant::OrderPartLocal
                 | ActionVariant::RequirePartLocal
