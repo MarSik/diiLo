@@ -332,11 +332,6 @@ pub enum LedgerEvent {
 pub struct Store {
     basepath: PathBuf,
 
-    // TODO full text search index
-    // search_index_path: TempDir, // hold to prevent deletion while the index is in use
-    // search_index: Index,
-    // search_reader: IndexReader,
-
     // Free parts in storage
     // added - how many were stored in the location (accumulating sum)
     // removed - how many were retrieved from location (accumulating sum)
@@ -366,29 +361,6 @@ pub struct Store {
 
 impl Store {
     pub fn new(basepath: PathBuf) -> anyhow::Result<Self> {
-        // TODO initialize store in XDG data dir
-
-        // Initialize Tantivy full text search
-        // follows https://tantivy-search.github.io/examples/basic_search.html
-        /*
-        let search_index_path = TempDir::new("tantivy-index-")?;
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("_iid", TEXT | STORED);
-        schema_builder.add_text_field("type", TEXT);
-        schema_builder.add_text_field("name", TEXT | STORED);
-        schema_builder.add_text_field("body", TEXT);
-        let schema = schema_builder.build();
-        let search_index = Index::create_in_dir(&search_index_path, schema.clone())?;
-
-        // self.scan_parts() loads data into the index
-        // self.load_events() loads data into ledger
-
-        let search_reader = search_index
-            .reader_builder()
-            .reload_policy(ReloadPolicy::OnCommitWithDelay)
-            .try_into()?;
-        */
-
         fs::create_dir_all(basepath.join("md"))?;
         fs::create_dir_all(basepath.join("ledger"))?;
 
@@ -396,9 +368,6 @@ impl Store {
 
         Ok(Self {
             basepath: PathBuf::from(&basepath),
-            // search_reader,
-            // search_index,
-            // search_index_path,
             count_cache: CountCache::new(),
             source_cache: CountCache::new(),
             project_cache: CountCache::new(),
@@ -470,9 +439,6 @@ impl Store {
     // Drop information caches and reload all parts from the stored
     // markdown files.
     pub fn scan_parts(&mut self) -> anyhow::Result<()> {
-        // TODO update full text index
-        // let mut _index_writer: IndexWriter = self.search_index.writer(50_000_000)?;
-
         self.parts.clear();
         self.labels.clear();
 
