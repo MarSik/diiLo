@@ -2,7 +2,10 @@ use crate::store::{cache::CountCacheSum, search::Query, LocationId, SourceId, St
 
 use super::{
     caching_panel_data::{self, CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError},
+    model::{
+        ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError,
+        SearchStatus,
+    },
 };
 
 #[derive(Debug)]
@@ -155,14 +158,18 @@ impl PanelData for PanelSourcesMenu {
             1 => {
                 let source_id = self.source_id.clone();
                 EnterAction(
-                    Box::new(PanelPartFromSourcesSelection::new(self, idx, source_id)),
+                    Box::new(PanelPartFromSourcesSelection::new(
+                        self, idx, source_id, None,
+                    )),
                     0,
                 )
             }
             2 => {
                 let source_id = self.source_id.clone();
                 EnterAction(
-                    Box::new(PanelOrderedFromSourcesSelection::new(self, idx, source_id)),
+                    Box::new(PanelOrderedFromSourcesSelection::new(
+                        self, idx, source_id, None,
+                    )),
                     0,
                 )
             }
@@ -236,14 +243,21 @@ pub struct PanelPartFromSourcesSelection {
     parent: ParentPanel,
     source_id: LocationId,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelPartFromSourcesSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, source_id: LocationId) -> Self {
+    pub fn new(
+        parent: Box<dyn PanelData>,
+        parent_idx: usize,
+        source_id: LocationId,
+        query: Option<Query>,
+    ) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
             source_id,
+            query,
         }
     }
 
@@ -251,6 +265,7 @@ impl PanelPartFromSourcesSelection {
         store
             .parts_by_source(&self.source_id)
             .iter()
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > count.added() {
                     format!(
@@ -271,7 +286,10 @@ impl PanelPartFromSourcesSelection {
 impl PanelData for PanelPartFromSourcesSelection {
     fn title(&self, store: &Store) -> String {
         let loc = self.cached.title(store, &self.source_id);
-        format!("Parts from {}", loc).to_string()
+        match &self.query {
+            Some(q) => format!("Parts from {}: query: {}", loc, q.current_query()).to_string(),
+            None => format!("Parts from {}", loc).to_string(),
+        }
     }
 
     fn panel_title(&self, store: &Store) -> String {
@@ -335,12 +353,31 @@ impl PanelData for PanelPartFromSourcesSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.source_id, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.source_id, Some(query))),
+                0,
+            ))
+        }
     }
 }
 
@@ -349,14 +386,21 @@ pub struct PanelOrderedFromSourcesSelection {
     parent: ParentPanel,
     source_id: LocationId,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelOrderedFromSourcesSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, source_id: LocationId) -> Self {
+    pub fn new(
+        parent: Box<dyn PanelData>,
+        parent_idx: usize,
+        source_id: LocationId,
+        query: Option<Query>,
+    ) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
             source_id,
+            query,
         }
     }
 
@@ -365,6 +409,7 @@ impl PanelOrderedFromSourcesSelection {
             .parts_by_source(&self.source_id)
             .iter()
             .filter(|(_, count)| count.show_empty() || (count.required() > count.added()))
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
@@ -377,7 +422,12 @@ impl PanelOrderedFromSourcesSelection {
 impl PanelData for PanelOrderedFromSourcesSelection {
     fn title(&self, store: &Store) -> String {
         let loc = self.cached.title(store, &self.source_id);
-        format!("Parts ordered from {}", loc).to_string()
+        match &self.query {
+            Some(q) => {
+                format!("Parts ordered from {}: query: {}", loc, q.current_query()).to_string()
+            }
+            None => format!("Parts ordered from {}", loc).to_string(),
+        }
     }
 
     fn panel_title(&self, store: &Store) -> String {
@@ -441,11 +491,30 @@ impl PanelData for PanelOrderedFromSourcesSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.source_id, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.source_id, Some(query))),
+                0,
+            ))
+        }
     }
 }

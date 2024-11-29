@@ -5,20 +5,22 @@ use crate::{
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchError},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchStatus},
 };
 
 #[derive(Debug)]
 pub struct PanelProjectSelection {
     parent: ParentPanel,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelProjectSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize) -> Self {
+    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, query: Option<Query>) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
+            query,
         }
     }
 
@@ -31,6 +33,7 @@ impl PanelProjectSelection {
                     .types
                     .contains(&crate::store::ObjectType::Project)
             })
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_project(p_id);
                 let count = counts.sum();
@@ -64,7 +67,7 @@ impl PanelData for PanelProjectSelection {
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
             EnterAction(
-                Box::new(PanelProjectPartsSelection::new(self, idx, item_id)),
+                Box::new(PanelProjectPartsSelection::new(self, idx, item_id, None)),
                 0,
             )
         } else {
@@ -115,12 +118,31 @@ impl PanelData for PanelProjectSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, Some(query))),
+                0,
+            ))
+        }
     }
 }
 
@@ -129,14 +151,21 @@ pub struct PanelProjectPartsSelection {
     parent: ParentPanel,
     project_id: LocationId,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelProjectPartsSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, project_id: LocationId) -> Self {
+    pub fn new(
+        parent: Box<dyn PanelData>,
+        parent_idx: usize,
+        project_id: LocationId,
+        query: Option<Query>,
+    ) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
             project_id,
+            query,
         }
     }
 
@@ -144,6 +173,7 @@ impl PanelProjectPartsSelection {
         store
             .parts_by_project(&self.project_id)
             .iter()
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > 0 {
                     format!("(= {}) {}", count.required(), count.count())
@@ -160,7 +190,10 @@ impl PanelProjectPartsSelection {
 impl PanelData for PanelProjectPartsSelection {
     fn title(&self, store: &Store) -> String {
         let loc = self.cached.title(store, &self.project_id);
-        format!("Parts in {}", loc).to_string()
+        match &self.query {
+            Some(q) => format!("Parts in {}: query: {}", loc, q.current_query()).to_string(),
+            None => format!("Parts in {}", loc).to_string(),
+        }
     }
 
     fn panel_title(&self, store: &Store) -> String {
@@ -224,11 +257,30 @@ impl PanelData for PanelProjectPartsSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.project_id, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.project_id, Some(query))),
+                0,
+            ))
+        }
     }
 }

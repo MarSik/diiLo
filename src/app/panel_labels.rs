@@ -2,7 +2,10 @@ use crate::store::{cache::CountCacheSum, search::Query, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError},
+    model::{
+        ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError,
+        SearchStatus,
+    },
     panel_parts::PanelPartLocationsSelection,
 };
 
@@ -168,7 +171,7 @@ impl PanelData for PanelLabelValueSelection {
         if let Some(item_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             EnterAction(
                 Box::new(PanelPartByLabelSelection::new(
-                    self, idx, &label_key, &item_id,
+                    self, idx, &label_key, &item_id, None,
                 )),
                 0,
             )
@@ -237,6 +240,7 @@ pub struct PanelPartByLabelSelection {
     label_key: String,
     label_value: String,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelPartByLabelSelection {
@@ -245,12 +249,14 @@ impl PanelPartByLabelSelection {
         parent_idx: usize,
         label_key: &str,
         label_value: &str,
+        query: Option<Query>,
     ) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
             label_key: label_key.to_string(),
             label_value: label_value.to_string(),
+            query,
         }
     }
 
@@ -258,6 +264,7 @@ impl PanelPartByLabelSelection {
         store
             .parts_by_label(&self.label_key, &self.label_value)
             .iter()
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p)))
             .map(|p| {
                 let c = store.count_by_part(&p.id).sum();
                 PanelItem::new(
@@ -273,7 +280,16 @@ impl PanelPartByLabelSelection {
 
 impl PanelData for PanelPartByLabelSelection {
     fn title(&self, _store: &Store) -> String {
-        format!("Parts marked as {}: {}", self.label_key, self.label_value).to_string()
+        match &self.query {
+            Some(q) => format!(
+                "Parts marked as {}: {}, query: {}",
+                self.label_key,
+                self.label_value,
+                q.current_query()
+            )
+            .to_string(),
+            None => format!("Parts marked as {}: {}", self.label_key, self.label_value).to_string(),
+        }
     }
 
     fn panel_title(&self, store: &Store) -> String {
@@ -345,11 +361,42 @@ impl PanelData for PanelPartByLabelSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(
+                    parent.0,
+                    parent.1,
+                    &self.label_key,
+                    &self.label_value,
+                    None,
+                )),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(
+                    parent.0,
+                    parent.1,
+                    &self.label_key,
+                    &self.label_value,
+                    Some(query),
+                )),
+                0,
+            ))
+        }
     }
 }

@@ -5,7 +5,7 @@ use crate::{
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchError},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchError, SearchStatus},
 };
 
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl PanelData for PanelLocationSelection {
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
             EnterAction(
-                Box::new(PanelLocationPartsSelection::new(self, idx, item_id)),
+                Box::new(PanelLocationPartsSelection::new(self, idx, item_id, None)),
                 0,
             )
         } else {
@@ -129,14 +129,21 @@ pub struct PanelLocationPartsSelection {
     parent: ParentPanel,
     location_id: LocationId,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelLocationPartsSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, location_id: LocationId) -> Self {
+    pub fn new(
+        parent: Box<dyn PanelData>,
+        parent_idx: usize,
+        location_id: LocationId,
+        query: Option<Query>,
+    ) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
             location_id,
+            query,
         }
     }
 
@@ -144,6 +151,7 @@ impl PanelLocationPartsSelection {
         store
             .parts_by_location(&self.location_id)
             .iter()
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > 0 {
                     format!("(> {}) {}", count.required(), count.count())
@@ -160,7 +168,10 @@ impl PanelLocationPartsSelection {
 impl PanelData for PanelLocationPartsSelection {
     fn title(&self, store: &Store) -> String {
         let loc = self.cached.title(store, &self.location_id);
-        format!("Parts in {}", loc).to_string()
+        match &self.query {
+            Some(q) => format!("Parts in {}: query: {}", loc, q.current_query()).to_string(),
+            None => format!("Parts in {}", loc).to_string(),
+        }
     }
 
     fn panel_title(&self, store: &Store) -> String {
@@ -224,11 +235,30 @@ impl PanelData for PanelLocationPartsSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
     fn search(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.location_id, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, self.location_id, Some(query))),
+                0,
+            ))
+        }
     }
 }

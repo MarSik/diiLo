@@ -38,7 +38,7 @@ impl PanelData for PanelTypeSelection {
     fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         match idx {
             0 => EnterAction(Box::new(PanelPartSelection::new(self, idx, None)), 0),
-            1 => EnterAction(Box::new(PanelProjectSelection::new(self, idx)), 0),
+            1 => EnterAction(Box::new(PanelProjectSelection::new(self, idx, None)), 0),
             2 => EnterAction(Box::new(PanelLabelSelection::new(self, idx)), 0),
             3 => EnterAction(Box::new(PanelLocationSelection::new(self, idx)), 0),
             4 => EnterAction(Box::new(PanelSourceSelection::new(self, idx)), 0),
