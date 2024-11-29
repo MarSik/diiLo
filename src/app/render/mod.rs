@@ -16,6 +16,7 @@ use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLay
 use super::App;
 
 mod render_icons;
+mod search;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -86,7 +87,7 @@ impl Widget for &App {
                 &self.view.panel_a,
                 self.model.panel_a.as_ref(),
                 self.view.hot() == Hot::PanelA,
-                self.view.active == ActivePanel::PanelA && self.view.active_search,
+                self.view.active == ActivePanel::PanelA && self.view.active_quick_select,
                 area,
                 buf,
             );
@@ -99,7 +100,7 @@ impl Widget for &App {
                 &self.view.panel_b,
                 self.model.panel_b.as_ref(),
                 self.view.hot() == Hot::PanelB,
-                self.view.active == ActivePanel::PanelB && self.view.active_search,
+                self.view.active == ActivePanel::PanelB && self.view.active_quick_select,
                 area,
                 buf,
             );
@@ -190,7 +191,7 @@ impl Widget for &App {
         let s_del_action = self.f8_action();
 
         let actions = [
-            "", // search
+            "search",
             "rename",
             "view",
             "edit",
@@ -215,6 +216,16 @@ impl Widget for &App {
         for idx in 8..=9 {
             if actions[idx - 1].is_empty() || !item_actionable {
                 action_style[idx - 1] = action_style[idx - 1].dim().dark_gray()
+            }
+        }
+
+        match self.get_active_panel_data().search_status() {
+            super::model::SearchStatus::NotSupported => {
+                action_style[0] = action_style[0].dim().dark_gray();
+            }
+            super::model::SearchStatus::NotApplied => (),
+            super::model::SearchStatus::Query(_) => {
+                action_style[0] = action_style[0].on_green();
             }
         }
 
@@ -299,6 +310,10 @@ impl Widget for &App {
                     Line::from(self.view.delete_from.clone()),
                 ],
             );
+        }
+
+        if self.view.search_dialog == DialogState::Visible {
+            self.search_dialog(full_area, buf);
         }
 
         if self.view.alert_dialog == DialogState::Visible {

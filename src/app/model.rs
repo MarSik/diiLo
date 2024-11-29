@@ -1,4 +1,6 @@
-use crate::store::{LocationId, PartId, SourceId, Store};
+use std::fmt::Display;
+
+use crate::store::{search::Query, LocationId, PartId, SourceId, Store};
 
 use super::panel_typesel::PanelTypeSelection;
 
@@ -73,11 +75,48 @@ pub(super) trait PanelData: std::fmt::Debug {
     //          cached values.
     // Return None when the content is empty.
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize>;
+
+    // Return the search status of this panel
+    // It can signal that search is not supported (and search key should do nothing),
+    // or that search can be used, but it is not at the moment, or return
+    // the current search query.
+    fn search_status(&self) -> SearchStatus {
+        SearchStatus::NotSupported
+    }
+
+    // Update the search query the current panel uses
+    fn search(self: Box<Self>, query: Query, store: &Store) -> Result<EnterAction, SearchError>;
 }
 
 // the first element is the panel data source to activate
 // the second element is the menu item to activate after move
 pub struct EnterAction(pub(super) Box<dyn PanelData>, pub(super) usize);
+
+pub enum SearchError {
+    NotSupported(EnterAction),
+}
+
+impl Display for SearchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SearchError::NotSupported(_) => f.write_str("search not supported"),
+        }
+    }
+}
+
+impl SearchError {
+    pub fn return_to(self) -> EnterAction {
+        match self {
+            SearchError::NotSupported(enter_action) => enter_action,
+        }
+    }
+}
+
+pub enum SearchStatus {
+    NotSupported,
+    NotApplied,
+    Query(String),
+}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum PanelContent {

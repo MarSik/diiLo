@@ -17,6 +17,7 @@ use serde::Serialize;
 use serializer::LedgerSerializer;
 
 pub mod cache;
+pub mod search;
 pub mod serializer;
 
 use crate::app::errs::AppError;

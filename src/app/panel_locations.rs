@@ -1,11 +1,11 @@
 use crate::{
     app::model::PanelItem,
-    store::{cache::CountCacheSum, LocationId, Store},
+    store::{cache::CountCacheSum, search::Query, LocationId, Store},
 };
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchError},
 };
 
 #[derive(Debug)]
@@ -114,6 +114,14 @@ impl PanelData for PanelLocationSelection {
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
     }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    }
 }
 
 #[derive(Debug)]
@@ -214,5 +222,13 @@ impl PanelData for PanelLocationPartsSelection {
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
     }
 }

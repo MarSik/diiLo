@@ -10,7 +10,7 @@ pub struct View {
     pub(super) active: ActivePanel,
     // Focus the info panel in info layout
     pub(super) active_info: bool,
-    pub(super) active_search: bool,
+    pub(super) active_quick_select: bool,
     pub(super) active_search_input: Input,
     pub(super) active_search_return_idx: usize,
     pub(super) info_scroll: usize,
@@ -33,12 +33,19 @@ pub struct View {
     pub(super) create_save_into: Option<PartId>,
     pub(crate) alert_title: String,
     pub(crate) alert_text: String,
+    pub(crate) search_dialog: DialogState,
+    pub(crate) search_query: Input,
+    pub(crate) search_selected: Option<String>,
 }
 
 impl View {
     pub fn hot(&self) -> Hot {
         if self.alert_dialog == DialogState::Visible {
             return Hot::AlertDialog;
+        }
+
+        if self.search_dialog == DialogState::Visible {
+            return Hot::SearchDialog;
         }
 
         if self.delete_dialog == DialogState::Visible {
@@ -53,8 +60,8 @@ impl View {
             return Hot::ActionCountDialog;
         }
 
-        if self.active_search {
-            return Hot::PanelSearch;
+        if self.active_quick_select {
+            return Hot::PanelQuickSelect;
         }
 
         if self.active_info {
@@ -75,19 +82,21 @@ impl View {
     }
 
     // Disables info view, search and other "pop-up" and quick edit actions
-    pub fn cancel_all(&mut self) {
+    pub fn cancel_on_panel_change(&mut self) {
         self.active_info = false;
-        self.info_scroll = 0;
-        self.active_search = false;
+        self.cancel_on_move();
     }
 
-    // Disables quick actions like search
-    pub fn cancel(&mut self) {
-        self.active_search = false;
+    // Disables quick actions like search and return name if search
+    // gets cancelled
+    pub fn cancel_on_move(&mut self) {
+        self.active_quick_select = false;
+        self.info_scroll = 0;
+        self.search_selected = None;
     }
 
     pub fn switch_active_panel(&mut self) {
-        self.cancel_all();
+        self.cancel_on_panel_change();
 
         self.active = match self.active {
             ActivePanel::PanelA => ActivePanel::PanelB,
@@ -96,7 +105,7 @@ impl View {
     }
 
     pub fn switch_full_split_layout(&mut self) {
-        self.cancel_all();
+        self.cancel_on_panel_change();
 
         self.layout = match self.layout {
             ViewLayout::Split => ViewLayout::Info,
@@ -111,7 +120,7 @@ impl View {
             return;
         }
 
-        self.cancel_all();
+        self.cancel_on_move();
         self.update_active_panel(|panel| {
             if panel.selected < size - 1 {
                 panel.selected = panel.selected.saturating_add(1);
@@ -125,7 +134,7 @@ impl View {
             return;
         }
 
-        self.cancel_all();
+        self.cancel_on_move();
         self.update_active_panel(|panel| panel.selected = panel.selected.saturating_sub(1));
     }
 
@@ -144,7 +153,7 @@ impl View {
     }
 
     pub(crate) fn show_action_dialog(&mut self, action: ActionVariant, count: usize) {
-        self.cancel();
+        self.cancel_on_move();
         self.action_count_dialog = DialogState::Visible;
         self.action_count_dialog_action = action;
         self.action_count_dialog_count = count;
@@ -216,13 +225,13 @@ impl View {
         }
     }
 
-    pub(crate) fn panel_search_event(&mut self, r: InputRequest) -> &str {
-        if !self.active_search {
+    pub(crate) fn panel_quick_select_event(&mut self, r: InputRequest) -> &str {
+        if !self.active_quick_select {
             self.active_search_input.reset();
             self.active_search_return_idx = self.get_active_panel_selection();
         }
 
-        self.active_search = true;
+        self.active_quick_select = true;
         self.active_search_input.handle(r);
         self.active_search_input.value()
     }
@@ -261,11 +270,12 @@ pub enum Hot {
     PanelA,
     PanelB,
     PanelInfo,
-    PanelSearch,
+    PanelQuickSelect,
     ActionCountDialog,
     CreatePartDialog,
     AlertDialog,
     DeleteDialog,
+    SearchDialog,
 }
 
 #[derive(Debug, Default)]

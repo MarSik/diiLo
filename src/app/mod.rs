@@ -3,11 +3,11 @@ use std::{mem::replace, rc::Rc};
 use chrono::Local;
 use errs::AppError;
 use log::{debug, error, info};
-use model::{ActionDescriptor, Model, PanelContent, PanelData, PanelItem};
+use model::{ActionDescriptor, EnterAction, Model, PanelContent, PanelData, PanelItem};
 use tui_input::Input;
-use view::{CreateMode, DialogState, View};
+use view::{ActivePanel, CreateMode, DialogState, View};
 
-use crate::store::{LedgerEntry, LedgerEvent, Part, PartId, PartMetadata, Store};
+use crate::store::{search::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata, Store};
 
 mod caching_panel_data;
 pub mod errs;
@@ -1714,6 +1714,76 @@ impl App {
 
         Ok(AppEvents::ReloadDataSelect(new_name))
     }
+
+    fn open_search_dialog(&mut self) {
+        match self.get_active_panel_data().search_status() {
+            model::SearchStatus::NotSupported => (),
+            model::SearchStatus::NotApplied => {
+                self.view.search_query.reset();
+                self.view.search_dialog = DialogState::Visible;
+            }
+            model::SearchStatus::Query(q) => {
+                self.view.search_query = Input::new(q);
+                self.view.search_dialog = DialogState::Visible;
+            }
+        }
+    }
+
+    fn perform_search(&mut self) -> AppEvents {
+        let query = Query::new(self.view.search_query.value());
+        if let Err(_e) = query {
+            // TODO handle errors once the parsing gets complex
+            return AppEvents::Redraw;
+        }
+        let query = query.unwrap();
+
+        let selected = if self.view.search_selected.is_none() {
+            self.view.search_selected = Some(
+                self.get_active_panel_data()
+                    .item_name(self.view.get_active_panel_selection(), &self.store),
+            );
+            self.view.search_selected.as_ref().unwrap()
+        } else {
+            self.view.search_selected.as_ref().unwrap()
+        };
+
+        match self.view.active {
+            ActivePanel::PanelA => {
+                // Replacing a non-copy structure member in a mutable self requires a workaround
+                // using the std::memory::replace and a temporary "empty" value
+                let old = replace(&mut self.model.panel_a, Box::new(TemporaryEmptyPanel()));
+                match old.search(query, &self.store) {
+                    Ok(next) => {
+                        self.model.panel_a = next.0;
+                        self.view.panel_a.selected = next.1;
+                        self.view.search_dialog = DialogState::Hidden;
+                    }
+                    Err(e) => {
+                        self.model.panel_a = e.return_to().0;
+                        // TODO report error back
+                    }
+                }
+                AppEvents::Select(selected.to_string())
+            }
+            ActivePanel::PanelB => {
+                // Replacing a non-copy structure member in a mutable self requires a workaround
+                // using the std::memory::replace and a temporary "empty" value
+                let old = replace(&mut self.model.panel_b, Box::new(TemporaryEmptyPanel()));
+                match old.search(query, &self.store) {
+                    Ok(next) => {
+                        self.model.panel_b = next.0;
+                        self.view.panel_b.selected = next.1;
+                        self.view.search_dialog = DialogState::Hidden;
+                    }
+                    Err(e) => {
+                        self.model.panel_b = e.return_to().0;
+                        // TODO report error back
+                    }
+                }
+                AppEvents::Select(selected.to_string())
+            }
+        }
+    }
 }
 
 // This is a NO-OP panel data structure that is used ONLY INTERNALLY
@@ -1770,6 +1840,14 @@ impl PanelData for TemporaryEmptyPanel {
     }
 
     fn item(&self, _idx: usize, _store: &Store) -> PanelItem {
+        todo!()
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, model::SearchError> {
         todo!()
     }
 }

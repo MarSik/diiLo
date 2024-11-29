@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use super::{
     errs::AppError,
-    view::{ActivePanel, CreateMode, Hot, ViewLayout},
+    view::{ActivePanel, CreateMode, DialogState, Hot, ViewLayout},
     App, AppEvents,
 };
 
@@ -74,10 +74,11 @@ impl App {
                 .scroll_to(self.get_active_panel_data().len(&self.store) - 1),
             KeyCode::Tab => self.view.switch_active_panel(),
             KeyCode::Enter => return Ok(self.press_enter()),
+            KeyCode::F(1) | KeyCode::Char('/') => self.open_search_dialog(),
             KeyCode::Char(c) => {
                 let val = self
                     .view
-                    .panel_search_event(tui_input::InputRequest::InsertChar(c))
+                    .panel_quick_select_event(tui_input::InputRequest::InsertChar(c))
                     .to_string();
                 self.select_item(val.as_str());
             }
@@ -182,57 +183,105 @@ impl App {
                 | KeyCode::PageDown => return Ok(self.handle_global_key_event(key_event)?),
                 _ => (),
             },
-            Hot::PanelSearch => match key_event.code {
+            Hot::PanelQuickSelect => match key_event.code {
                 KeyCode::Esc => {
-                    self.view.active_search = false;
+                    self.view.active_quick_select = false;
                     let return_to = self.view.active_search_return_idx;
                     self.view.update_active_panel(|p| p.selected = return_to);
                 }
                 KeyCode::Enter => {
-                    self.view.active_search = false;
+                    self.view.active_quick_select = false;
                 }
                 KeyCode::Char(c) => {
                     let val = self
                         .view
-                        .panel_search_event(tui_input::InputRequest::InsertChar(c))
+                        .panel_quick_select_event(tui_input::InputRequest::InsertChar(c))
                         .to_string();
                     self.select_item(val.as_str());
                 }
                 KeyCode::Left => {
                     self.view
-                        .panel_search_event(tui_input::InputRequest::GoToPrevChar);
+                        .panel_quick_select_event(tui_input::InputRequest::GoToPrevChar);
                 }
                 KeyCode::Right => {
                     self.view
-                        .panel_search_event(tui_input::InputRequest::GoToNextChar);
+                        .panel_quick_select_event(tui_input::InputRequest::GoToNextChar);
                 }
                 KeyCode::Backspace => {
                     let val = self
                         .view
-                        .panel_search_event(tui_input::InputRequest::DeletePrevChar)
+                        .panel_quick_select_event(tui_input::InputRequest::DeletePrevChar)
                         .to_string();
                     self.select_item(val.as_str());
                 }
                 KeyCode::Delete => {
                     let val = self
                         .view
-                        .panel_search_event(tui_input::InputRequest::DeleteNextChar)
+                        .panel_quick_select_event(tui_input::InputRequest::DeleteNextChar)
                         .to_string();
                     self.select_item(val.as_str());
                 }
                 KeyCode::Home => {
                     self.view
-                        .panel_search_event(tui_input::InputRequest::GoToStart);
+                        .panel_quick_select_event(tui_input::InputRequest::GoToStart);
                 }
                 KeyCode::End => {
                     self.view
-                        .panel_search_event(tui_input::InputRequest::GoToEnd);
+                        .panel_quick_select_event(tui_input::InputRequest::GoToEnd);
                 }
                 KeyCode::F(_)
                 | KeyCode::Down
                 | KeyCode::Up
                 | KeyCode::PageDown
                 | KeyCode::PageUp => return Ok(self.handle_global_key_event(key_event)?),
+                _ => {}
+            },
+            Hot::SearchDialog => match key_event.code {
+                KeyCode::Esc => {
+                    self.view.search_dialog = DialogState::Hidden;
+                }
+                KeyCode::Enter => {
+                    return Ok(self.perform_search());
+                }
+                KeyCode::F(12) => {
+                    self.view.search_query.reset();
+                    return Ok(self.perform_search());
+                }
+                KeyCode::Char(c) => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::InsertChar(c));
+                }
+                KeyCode::Left => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::GoToPrevChar);
+                }
+                KeyCode::Right => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::GoToNextChar);
+                }
+                KeyCode::Backspace => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::DeletePrevChar);
+                }
+                KeyCode::Delete => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::DeleteNextChar);
+                }
+                KeyCode::Home => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::GoToStart);
+                }
+                KeyCode::End => {
+                    self.view
+                        .search_query
+                        .handle(tui_input::InputRequest::GoToEnd);
+                }
                 _ => {}
             },
             _ => return Ok(self.handle_global_key_event(key_event)?),

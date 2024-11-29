@@ -1,7 +1,7 @@
-use crate::store::Store;
+use crate::store::{search::Query, Store};
 
 use super::{
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError},
     panel_labels::PanelLabelSelection,
     panel_locations::PanelLocationSelection,
     panel_parts::PanelPartSelection,
@@ -37,7 +37,7 @@ impl PanelData for PanelTypeSelection {
 
     fn enter(self: Box<Self>, idx: usize, _store: &Store) -> EnterAction {
         match idx {
-            0 => EnterAction(Box::new(PanelPartSelection::new(self, idx)), 0),
+            0 => EnterAction(Box::new(PanelPartSelection::new(self, idx, None)), 0),
             1 => EnterAction(Box::new(PanelProjectSelection::new(self, idx)), 0),
             2 => EnterAction(Box::new(PanelLabelSelection::new(self, idx)), 0),
             3 => EnterAction(Box::new(PanelLocationSelection::new(self, idx)), 0),
@@ -93,5 +93,13 @@ impl PanelData for PanelTypeSelection {
 
     fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data.get(idx).unwrap().clone()
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
     }
 }

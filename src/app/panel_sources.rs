@@ -1,8 +1,8 @@
-use crate::store::{cache::CountCacheSum, LocationId, SourceId, Store};
+use crate::store::{cache::CountCacheSum, search::Query, LocationId, SourceId, Store};
 
 use super::{
     caching_panel_data::{self, CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
+    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError},
 };
 
 #[derive(Debug)]
@@ -111,6 +111,14 @@ impl PanelData for PanelSourceSelection {
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
     }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    }
 }
 
 #[derive(Debug)]
@@ -212,6 +220,14 @@ impl PanelData for PanelSourcesMenu {
 
     fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data[idx].clone()
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
     }
 }
 
@@ -318,6 +334,14 @@ impl PanelData for PanelPartFromSourcesSelection {
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
     }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    }
 }
 
 #[derive(Debug)]
@@ -415,5 +439,13 @@ impl PanelData for PanelOrderedFromSourcesSelection {
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
     }
 }

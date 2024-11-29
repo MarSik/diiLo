@@ -1,21 +1,26 @@
-use crate::store::{cache::CountCacheSum, PartId, Store};
+use crate::store::{cache::CountCacheSum, search::Query, PartId, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem},
+    model::{
+        ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError,
+        SearchStatus,
+    },
 };
 
 #[derive(Debug)]
 pub struct PanelPartSelection {
     parent: ParentPanel,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelPartSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize) -> Self {
+    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, query: Option<Query>) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
+            query,
         }
     }
 
@@ -24,6 +29,7 @@ impl PanelPartSelection {
             .all_objects()
             .iter()
             .filter(|p| p.1.metadata.types.contains(&crate::store::ObjectType::Part))
+            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_part(p_id);
                 let count = counts.sum();
@@ -41,7 +47,10 @@ impl PanelPartSelection {
 
 impl PanelData for PanelPartSelection {
     fn title(&self, _store: &Store) -> String {
-        "Nonfiltered part list".to_owned()
+        match &self.query {
+            Some(q) => format!("Part list: {}", q).to_string(),
+            None => "Nonfiltered part list".to_owned(),
+        }
     }
 
     fn data_type(&self) -> super::model::PanelContent {
@@ -111,6 +120,33 @@ impl PanelData for PanelPartSelection {
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         let loader = || self.load_cache(store);
         self.cached.item(idx, loader)
+    }
+
+    fn search_status(&self) -> super::model::SearchStatus {
+        match &self.query {
+            Some(q) => SearchStatus::Query(q.current_query()),
+            None => SearchStatus::NotApplied,
+        }
+    }
+
+    fn search(
+        self: Box<Self>,
+        query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, Some(query))),
+                0,
+            ))
+        }
     }
 }
 
@@ -212,5 +248,13 @@ impl PanelData for PanelPartLocationsSelection {
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
+    }
+
+    fn search(
+        self: Box<Self>,
+        _query: Query,
+        _store: &Store,
+    ) -> Result<EnterAction, super::model::SearchError> {
+        Err(SearchError::NotSupported(EnterAction(self, 0)))
     }
 }
