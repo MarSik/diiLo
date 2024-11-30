@@ -7,7 +7,10 @@ use model::{ActionDescriptor, EnterAction, Model, PanelContent, PanelData, Panel
 use tui_input::Input;
 use view::{ActivePanel, CreateMode, DialogState, View};
 
-use crate::store::{search::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata, Store};
+use crate::store::{
+    cache::CountCacheSum, search::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata,
+    Store,
+};
 
 mod caching_panel_data;
 pub mod errs;
@@ -1476,9 +1479,11 @@ impl App {
         match self.get_active_panel_data().data_type() {
             PanelContent::None => return Ok(AppEvents::Redraw),
             PanelContent::TypeSelection => todo!(),
-            PanelContent::Parts => self.update_status("Part delete is not implemented yet."),
+            PanelContent::Parts => {
+                return self.finish_delete_part(action_descriptor);
+            }
             PanelContent::Locations => {
-                self.update_status("Location delete is not implemented yet.")
+                return self.finish_delete_location(action_descriptor);
             }
             PanelContent::PartsInLocation => {
                 return self.finish_remove_part_from_location(action_descriptor);
@@ -1492,14 +1497,18 @@ impl App {
             PanelContent::PartsWithLabels => {
                 return self.finish_remove_label_from_part(action_descriptor);
             }
-            PanelContent::Sources => self.update_status("Source deletion not implemented yet."),
+            PanelContent::Sources => {
+                return self.finish_delete_source(action_descriptor);
+            }
             PanelContent::PartsInOrders => {
                 return self.finish_remove_part_from_source(action_descriptor);
             }
             PanelContent::PartsFromSources => {
                 return self.finish_remove_part_from_source(action_descriptor);
             }
-            PanelContent::Projects => self.update_status("Project deletion not implemented yet."),
+            PanelContent::Projects => {
+                return self.finish_delete_project(action_descriptor);
+            }
             PanelContent::PartsInProjects => {
                 return self.finish_remove_part_from_project(action_descriptor);
             }
@@ -1783,6 +1792,99 @@ impl App {
                 AppEvents::Select(selected.to_string())
             }
         }
+    }
+
+    fn finish_delete_part(
+        &mut self,
+        action_descriptor: Option<ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let part_id = action_descriptor
+            .and_then(|d| d.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let counts = self.store.count_by_part(&part_id).sum();
+        if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
+            self.update_status("Part cannot be deleted, because it is tracked.");
+            return Ok(AppEvents::Nop);
+        }
+
+        let counts = self.store.get_projects_by_part(&part_id).sum();
+        if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
+            self.update_status("Part cannot be deleted, because it is tracked in projects.");
+            return Ok(AppEvents::Nop);
+        }
+
+        let counts = self.store.get_sources_by_part(&part_id).sum();
+        if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
+            self.update_status("Part cannot be deleted, because it is tracked in sources.");
+            return Ok(AppEvents::Nop);
+        }
+
+        let res = self.store.remove(&part_id).map(|_| AppEvents::ReloadData)?;
+        self.update_status(format!("Part {} was DELETED!", part_id).as_str());
+        Ok(res)
+    }
+
+    fn finish_delete_location(
+        &mut self,
+        action_descriptor: Option<ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let location_id = action_descriptor
+            .and_then(|d| d.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let counts = self.store.count_by_location(&location_id).sum();
+        if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
+            self.update_status("Location cannot be deleted, because it contains parts");
+            return Ok(AppEvents::Nop);
+        }
+
+        let res = self
+            .store
+            .remove(&location_id)
+            .map(|_| AppEvents::ReloadData)?;
+        self.update_status(format!("Location {} was DELETED!", location_id).as_str());
+        Ok(res)
+    }
+
+    fn finish_delete_project(
+        &mut self,
+        action_descriptor: Option<ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let project_id = action_descriptor
+            .and_then(|d| d.project().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let counts = self.store.count_by_project(&project_id).sum();
+        if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
+            self.update_status("Project cannot be deleted, because it contains parts");
+            return Ok(AppEvents::Nop);
+        }
+
+        let res = self
+            .store
+            .remove(&project_id)
+            .map(|_| AppEvents::ReloadData)?;
+        self.update_status(format!("Project {} was DELETED!", project_id).as_str());
+        Ok(res)
+    }
+
+    fn finish_delete_source(
+        &mut self,
+        action_descriptor: Option<ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let source_id = action_descriptor
+            .and_then(|d| d.source().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let counts = self.store.count_by_source(&source_id).sum();
+        if counts.required != 0 {
+            self.update_status("Source cannot be deleted, because it contains ordered parts");
+            return Ok(AppEvents::Nop);
+        }
+
+        let res = self
+            .store
+            .remove(&source_id)
+            .map(|_| AppEvents::ReloadData)?;
+        self.update_status(format!("Source {} was DELETED!", source_id).as_str());
+        Ok(res)
     }
 }
 

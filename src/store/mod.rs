@@ -891,6 +891,36 @@ impl Store {
         self.project_cache
             .show_empty(part_id, project_id, show_empty)
     }
+
+    pub(crate) fn get_projects_by_part(&self, project_id: &str) -> Vec<CountCacheEntry> {
+        self.project_cache.by_location(project_id)
+    }
+
+    pub(crate) fn get_sources_by_part(&self, source_id: &str) -> Vec<CountCacheEntry> {
+        self.source_cache.by_location(source_id)
+    }
+
+    pub(crate) fn remove(&mut self, part_id: &str) -> Result<(), AppError> {
+        let part = self
+            .parts
+            .get(part_id)
+            .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
+
+        // Delete file
+        part.filename
+            .as_ref()
+            .map(fs::remove_file)
+            .unwrap_or(Ok(()))
+            .map_err(AppError::IoError)?;
+        self.parts.remove(part_id);
+
+        // Clear caches
+        self.count_cache.remove(part_id);
+        self.source_cache.remove(part_id);
+        self.project_cache.remove(part_id);
+
+        Ok(())
+    }
 }
 
 // Compute proper storage path based on Free Desktop environment variables.

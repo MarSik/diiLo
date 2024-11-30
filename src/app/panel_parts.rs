@@ -171,13 +171,13 @@ impl PanelPartLocationsSelection {
             .locations_by_part(&self.part_id)
             .iter()
             .map(|(p, count)| {
-                let count = count.count();
-                PanelItem::new(
-                    &p.metadata.name,
-                    &p.metadata.summary,
-                    &count.to_string(),
-                    Some(&p.id),
-                )
+                let data = if count.required() > 0 {
+                    format!("(> {}) {}", count.required(), count.count())
+                } else {
+                    count.count().to_string()
+                };
+
+                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
             })
             .collect()
     }

@@ -237,6 +237,22 @@ impl CountCache {
         self.by_location.clear();
         self.by_part.clear();
     }
+
+    pub(crate) fn remove(&mut self, object_id: &str) {
+        if let Some(cs) = self.by_location.get(object_id) {
+            for e in cs {
+                self.by_part.get_mut(&e.part_id).unwrap().remove(e);
+                self.all.remove(e);
+            }
+        }
+
+        if let Some(cs) = self.by_part.get(object_id) {
+            for e in cs {
+                self.by_location.get_mut(&e.location_id).unwrap().remove(e);
+                self.all.remove(e);
+            }
+        }
+    }
 }
 
 pub trait CountCacheSum {
