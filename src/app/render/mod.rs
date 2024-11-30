@@ -219,6 +219,12 @@ impl Widget for &App {
             }
         }
 
+        for idx in 10..=12 {
+            if actions[idx - 1].is_empty() {
+                action_style[idx - 1] = action_style[idx - 1].dim().dark_gray()
+            }
+        }
+
         match self.get_active_panel_data().search_status() {
             super::model::SearchStatus::NotSupported => {
                 action_style[0] = action_style[0].dim().dark_gray();
