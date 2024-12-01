@@ -512,6 +512,8 @@ impl App {
             super::ActionVariant::OrderPartLocal => render_icons::ORDER,
             super::ActionVariant::RequirePartLocal => render_icons::REQUIRE,
             super::ActionVariant::Delete => render_icons::DELETE,
+            super::ActionVariant::ForceCount => render_icons::FORCE_COUNT,
+            super::ActionVariant::ForceCountLocal => render_icons::FORCE_COUNT,
         };
 
         if self.view.action_count_dialog_action.countable() {
@@ -527,14 +529,6 @@ impl App {
                 .render(block_area[2], buf);
         }
 
-        let source_idx = self.view.get_active_panel_selection();
-        let source_name = self
-            .get_active_panel_data()
-            .item_name(source_idx, &self.store);
-        let source_summary = self
-            .get_active_panel_data()
-            .item_summary(source_idx, &self.store);
-
         let source_area =
             Layout::horizontal([Constraint::Length(8), Constraint::Min(8)]).split(block_area[0]);
 
@@ -543,38 +537,34 @@ impl App {
             .with_style(Style::new().blue())
             .render(source_area[0], buf);
 
-        Paragraph::new(vec![
-            Line::from(vec![self
-                .view
-                .action_count_dialog_action
-                .description()
-                .blue()
-                .bold()]),
-            Line::from(vec![source_name.black().bold()]),
-            Line::from(vec![source_summary.dark_gray()]),
-        ])
-        .alignment(ratatui::layout::Alignment::Left)
-        .render(source_area[1], buf);
+        if let Some(obj) = self.view.action_count_dialog_source.as_ref() {
+            Paragraph::new(vec![
+                Line::from(vec![self
+                    .view
+                    .action_count_dialog_action
+                    .description()
+                    .blue()
+                    .bold()]),
+                Line::from(obj.name.as_str().black().bold()),
+                Line::from(obj.summary.as_str().dark_gray()),
+            ])
+            .alignment(ratatui::layout::Alignment::Left)
+            .render(source_area[1], buf);
+        }
 
         if self.view.action_count_dialog_action.dual_panel() {
             let destination_area = Layout::horizontal([Constraint::Length(8), Constraint::Min(8)])
                 .split(block_area[1]);
 
-            let destination_idx = self.view.get_inactive_panel_selection();
-            let destination_name = self
-                .get_inactive_panel_data()
-                .item_name(destination_idx, &self.store);
-            let destination_summary = self
-                .get_inactive_panel_data()
-                .item_summary(destination_idx, &self.store);
-
-            Paragraph::new(vec![
-                Line::from(vec!["-> to ".blue().bold()]),
-                Line::from(vec![destination_name.black().bold()]),
-                Line::from(destination_summary.dark_gray()),
-            ])
-            .alignment(ratatui::layout::Alignment::Left)
-            .render(destination_area[1], buf);
+            if let Some(obj) = self.view.action_count_dialog_destination.as_ref() {
+                Paragraph::new(vec![
+                    Line::from(vec!["-> to ".blue().bold()]),
+                    Line::from(obj.name.as_str().black().bold()),
+                    Line::from(obj.summary.as_str().dark_gray()),
+                ])
+                .alignment(ratatui::layout::Alignment::Left)
+                .render(destination_area[1], buf);
+            }
         }
     }
 

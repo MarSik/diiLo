@@ -682,13 +682,20 @@ impl Store {
                     .update_count(&e.part, location, ADD(e.count), NONE, NONE);
             }
             LedgerEvent::ForceCount(location) => {
+                let count = self.count_cache.get_count(&e.part, location);
+                let (new_added, new_removed) = if (e.count as isize) > count.count() {
+                    (count.removed() + e.count, count.removed())
+                } else {
+                    (count.added(), count.added().saturating_sub(e.count))
+                };
+
                 self.count_cache.set_count(CountCacheEntry::new(
                     Rc::clone(&e.part),
                     Rc::clone(location),
-                    e.count,
-                    0,
-                    0,
-                )); // TODO required
+                    new_added,
+                    new_removed,
+                    count.required(),
+                ));
             }
             LedgerEvent::RequireIn(location) => {
                 self.count_cache

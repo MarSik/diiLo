@@ -18,6 +18,8 @@ pub struct View {
     pub(super) panel_b: PanelState,
     pub(super) action_count_dialog: DialogState,
     pub(super) action_count_dialog_action: ActionVariant,
+    pub(super) action_count_dialog_source: Option<PanelItem>,
+    pub(super) action_count_dialog_destination: Option<PanelItem>,
     pub(super) action_count_dialog_count: usize,
     pub(super) action_count_dialog_typing: bool,
     pub(super) status: String,
@@ -152,12 +154,20 @@ impl View {
         }
     }
 
-    pub(crate) fn show_action_dialog(&mut self, action: ActionVariant, count: usize) {
+    pub(crate) fn show_action_dialog(
+        &mut self,
+        action: ActionVariant,
+        source: Option<PanelItem>,
+        destination: Option<PanelItem>,
+        count: usize,
+    ) {
         self.cancel_on_move();
         self.action_count_dialog = DialogState::Visible;
         self.action_count_dialog_action = action;
         self.action_count_dialog_count = count;
         self.action_count_dialog_typing = false;
+        self.action_count_dialog_source = source;
+        self.action_count_dialog_destination = destination;
     }
 
     pub(crate) fn hide_action_dialog(&mut self) {

@@ -91,6 +91,8 @@ pub enum ActionVariant {
     UnsolderPart,
     OrderPartLocal,
     RequirePartLocal,
+    ForceCount,
+    ForceCountLocal,
     Delete,
 }
 
@@ -111,6 +113,8 @@ impl ActionVariant {
             ActionVariant::UnsolderPart => "unsolder",
             ActionVariant::OrderPartLocal => "order",
             ActionVariant::RequirePartLocal => "require",
+            ActionVariant::ForceCount => "force count",
+            ActionVariant::ForceCountLocal => "force count",
             ActionVariant::Delete => "delete",
         }
     }
@@ -123,6 +127,7 @@ impl ActionVariant {
                 | ActionVariant::Delete
                 | ActionVariant::ClonePart
                 | ActionVariant::CreatePart
+                | ActionVariant::ForceCountLocal
         )
     }
 
@@ -143,6 +148,8 @@ impl ActionVariant {
             ActionVariant::OrderPartLocal => "Order part",
             ActionVariant::RequirePartLocal => "Require part",
             ActionVariant::Delete => "Delete part",
+            ActionVariant::ForceCount => "Force count",
+            ActionVariant::ForceCountLocal => "Force count",
         }
     }
 
@@ -163,6 +170,8 @@ impl ActionVariant {
             ActionVariant::OrderPartLocal => true,
             ActionVariant::RequirePartLocal => true,
             ActionVariant::Delete => false,
+            ActionVariant::ForceCount => true,
+            ActionVariant::ForceCountLocal => true,
         }
     }
 }
@@ -288,6 +297,9 @@ impl App {
                 ActionVariant::SolderPart
             }
 
+            (PanelContent::Parts, PanelContent::Locations) => ActionVariant::ForceCount,
+            (PanelContent::Parts, PanelContent::PartsInLocation) => ActionVariant::ForceCount,
+
             (PanelContent::Parts, _) => ActionVariant::None,
             (PanelContent::Locations, _) => ActionVariant::None,
 
@@ -379,10 +391,18 @@ impl App {
                     }
                     ActionVariant::Error => Err(AppError::BadOperationContext.into()),
 
-                    // These two are called in different way, keep the todo here to catch errors
+                    ActionVariant::ForceCount => {
+                        self.finish_action_force_count(source, destination)
+                    }
+                    ActionVariant::ForceCountLocal => {
+                        self.finish_action_force_count_local(source.as_ref())
+                    }
+
+                    // These are called in different way, keep the todo here to catch errors
                     ActionVariant::CreatePart => todo!(),
                     ActionVariant::ClonePart => todo!(),
-                    _ => Ok(AppEvents::Redraw),
+                    ActionVariant::None => todo!(),
+                    ActionVariant::Delete => todo!(),
                 }
             }
             view::Hot::CreatePartDialog => Ok(AppEvents::Redraw),
@@ -773,6 +793,19 @@ impl App {
         self.interpret_action(action)
     }
 
+    fn panel_item_from_id(&self, p_id: &PartId) -> Result<PanelItem, AppError> {
+        let obj = self
+            .store
+            .part_by_id(p_id)
+            .ok_or(AppError::NoSuchObject(p_id.to_string()))?;
+        Ok(PanelItem {
+            name: obj.metadata.name.clone(),
+            summary: obj.metadata.summary.clone(),
+            data: String::with_capacity(0),
+            id: Some(Rc::clone(p_id)),
+        })
+    }
+
     fn interpret_action(&mut self, action: ActionVariant) -> Result<AppEvents, AppError> {
         // Dual panel actions are ignored when both sides are not visible
         if action.dual_panel() && !self.view.layout.is_dual_panel() {
@@ -783,41 +816,124 @@ impl App {
             ActionVariant::None => return Ok(AppEvents::Nop),
             ActionVariant::Error => return Err(AppError::BadOperationContext),
             ActionVariant::MovePart => {
-                self.action_dialog_common_move(action);
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.location().map(Rc::clone))
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                } else {
+                    return Err(dst.unwrap_err());
+                }
             }
-            ActionVariant::AddLabel => {
-                self.action_dialog_common_move(action);
-            }
-            ActionVariant::RemoveLabel => {
-                self.action_dialog_common_move(action);
+            ActionVariant::AddLabel | ActionVariant::RemoveLabel => {
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .ok_or(AppError::BadOperationContext)?;
+                let src = self
+                    .get_active_panel_data()
+                    .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+                    .ok_or(AppError::BadOperationContext)?;
+
+                if let Some(part_id) = src.part() {
+                    let label = dst.label().ok_or(AppError::BadOperationContext)?;
+                    let label_item = PanelItem {
+                        name: format!("{}: {}", label.0, label.1),
+                        summary: String::with_capacity(0),
+                        data: String::with_capacity(0),
+                        id: None,
+                    };
+                    self.view.show_action_dialog(
+                        action,
+                        Some(label_item),
+                        Some(self.panel_item_from_id(part_id)?),
+                        0,
+                    );
+                } else if let Some(label) = src.label() {
+                    let part_id = dst.part().ok_or(AppError::BadOperationContext)?;
+                    let label_item = PanelItem {
+                        name: format!("{}: {}", label.0, label.1),
+                        summary: String::with_capacity(0),
+                        data: String::with_capacity(0),
+                        id: None,
+                    };
+                    self.view.show_action_dialog(
+                        action,
+                        Some(label_item),
+                        Some(self.panel_item_from_id(part_id)?),
+                        0,
+                    );
+                } else {
+                    return Err(AppError::BadOperationContext);
+                }
             }
             ActionVariant::CreatePart => todo!(),
             ActionVariant::ClonePart => {
                 return self.action_clone_part();
             }
-            ActionVariant::RequirePart => {
-                self.action_dialog_common_move(action);
-            }
             ActionVariant::OrderPart => {
-                self.action_dialog_common_move(action);
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.source().map(Rc::clone))
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                } else {
+                    return Err(dst.unwrap_err());
+                }
             }
-            ActionVariant::DeliverPart => {
-                self.action_dialog_common_move(action);
+            ActionVariant::RequirePart
+            | ActionVariant::DeliverPart
+            | ActionVariant::UnsolderPart => {
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.location().map(Rc::clone))
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                } else {
+                    return Err(dst.unwrap_err());
+                }
             }
             ActionVariant::SolderPart => {
-                self.action_dialog_common_move(action);
-            }
-            ActionVariant::UnsolderPart => {
-                self.action_dialog_common_move(action);
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.project().map(Rc::clone))
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                } else {
+                    return Err(dst.unwrap_err());
+                }
             }
             ActionVariant::OrderPartLocal => {
-                self.action_dialog_common_move(action);
+                let dst = self
+                    .get_active_panel_data()
+                    .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+                    .and_then(|ad| ad.source().map(Rc::clone))
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                } else {
+                    return Err(dst.unwrap_err());
+                }
             }
             ActionVariant::RequirePartLocal => {
-                self.prepare_require_part_local(action);
+                return self.prepare_require_part_local(action);
             }
             ActionVariant::Delete => {
                 self.prepare_delete();
+            }
+            ActionVariant::ForceCount => {
+                self.prepare_force_count()?;
+            }
+            ActionVariant::ForceCountLocal => {
+                self.prepare_force_count_local()?;
             }
         };
 
@@ -826,29 +942,52 @@ impl App {
         Ok(AppEvents::Redraw)
     }
 
-    fn prepare_require_part_local(&mut self, action: ActionVariant) -> Option<AppEvents> {
+    fn prepare_require_part_local(&mut self, action: ActionVariant) -> Result<AppEvents, AppError> {
         let ad = self
             .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)?;
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
 
-        let part_id = ad.part()?;
-        let count = if let Some(location_id) = ad.location() {
-            self.store.get_by_location(part_id, location_id).required()
+        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
+        let part_item = Some(self.panel_item_from_id(part_id)?);
+
+        if let Some(location_id) = ad.location() {
+            let count = self.store.get_by_location(part_id, location_id).required();
+            self.view.show_action_dialog(
+                action,
+                part_item,
+                Some(self.panel_item_from_id(location_id)?),
+                count,
+            );
         } else if let Some(project_id) = ad.project() {
-            self.store.get_by_project(part_id, project_id).required()
+            let count = self.store.get_by_project(part_id, project_id).required();
+            self.view.show_action_dialog(
+                action,
+                part_item,
+                Some(self.panel_item_from_id(project_id)?),
+                count,
+            );
         } else if let Some(source_id) = ad.source() {
-            self.store.get_by_source(part_id, source_id).required()
+            let count = self.store.get_by_source(part_id, source_id).required();
+            self.view.show_action_dialog(
+                action,
+                part_item,
+                Some(self.panel_item_from_id(source_id)?),
+                count,
+            );
         } else {
-            return None;
+            return Err(AppError::BadOperationContext);
         };
 
-        // show currently required count as prefilled value
-        self.view.show_action_dialog(action, count);
-        Some(AppEvents::Redraw)
+        Ok(AppEvents::Redraw)
     }
 
-    fn action_dialog_common_move(&mut self, action: ActionVariant) {
-        self.view.show_action_dialog(action, 0);
+    fn action_dialog_common_move(&mut self, action: ActionVariant, destination: Option<PanelItem>) {
+        let source = self
+            .get_active_panel_data()
+            .item(self.view.get_active_panel_selection(), &self.store);
+        self.view
+            .show_action_dialog(action, Some(source), destination, 0);
     }
 
     pub fn full_reload(&mut self) -> anyhow::Result<()> {
@@ -1885,6 +2024,94 @@ impl App {
             .map(|_| AppEvents::ReloadData)?;
         self.update_status(format!("Source {} was DELETED!", source_id).as_str());
         Ok(res)
+    }
+
+    fn prepare_force_count(&mut self) -> Result<AppEvents, AppError> {
+        let part_id = self
+            .get_active_panel_data()
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .and_then(|ad| ad.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let location_id = self
+            .get_inactive_panel_data()
+            .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+            .and_then(|ad| ad.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let count = self.store.get_by_location(&part_id, &location_id);
+
+        self.view.show_action_dialog(
+            ActionVariant::ForceCount,
+            Some(self.panel_item_from_id(&part_id)?),
+            Some(self.panel_item_from_id(&location_id)?),
+            count.count().max(0) as usize,
+        );
+        Ok(AppEvents::Redraw)
+    }
+
+    fn prepare_force_count_local(&mut self) -> Result<AppEvents, AppError> {
+        let ad = self
+            .get_active_panel_data()
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store);
+        let part_id = ad
+            .as_ref()
+            .and_then(|ad| ad.part())
+            .ok_or(AppError::BadOperationContext)?;
+        let location_id = ad
+            .as_ref()
+            .and_then(|ad| ad.location())
+            .ok_or(AppError::BadOperationContext)?;
+        let count = self.store.get_by_location(part_id, location_id);
+
+        self.view.show_action_dialog(
+            ActionVariant::ForceCount,
+            Some(self.panel_item_from_id(part_id)?),
+            Some(self.panel_item_from_id(location_id)?),
+            count.count().max(0) as usize,
+        );
+        Ok(AppEvents::Redraw)
+    }
+
+    fn finish_action_force_count(
+        &mut self,
+        source: Option<ActionDescriptor>,
+        destination: Option<ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let part_id = source
+            .and_then(|ad| ad.part().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let location_id = destination
+            .and_then(|ad| ad.location().map(Rc::clone))
+            .ok_or(AppError::BadOperationContext)?;
+        let ev = LedgerEntry {
+            t: Local::now().fixed_offset(),
+            count: self.view.action_count_dialog_count,
+            part: part_id,
+            ev: LedgerEvent::ForceCount(location_id),
+        };
+        self.store.record_event(&ev)?;
+        self.store.update_count_cache(&ev);
+        Ok(AppEvents::ReloadData)
+    }
+
+    fn finish_action_force_count_local(
+        &mut self,
+        ad: Option<&ActionDescriptor>,
+    ) -> Result<AppEvents, anyhow::Error> {
+        let part_id = ad
+            .and_then(|ad| ad.part())
+            .ok_or(AppError::BadOperationContext)?;
+        let location_id = ad
+            .and_then(|ad| ad.location())
+            .ok_or(AppError::BadOperationContext)?;
+        let ev = LedgerEntry {
+            t: Local::now().fixed_offset(),
+            count: self.view.action_count_dialog_count,
+            part: Rc::clone(part_id),
+            ev: LedgerEvent::ForceCount(Rc::clone(location_id)),
+        };
+        self.store.record_event(&ev)?;
+        self.store.update_count_cache(&ev);
+        Ok(AppEvents::ReloadData)
     }
 }
 
