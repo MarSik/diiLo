@@ -300,6 +300,11 @@ impl App {
             (PanelContent::Parts, PanelContent::Locations) => ActionVariant::ForceCount,
             (PanelContent::Parts, PanelContent::PartsInLocation) => ActionVariant::ForceCount,
 
+            (PanelContent::PartsWithLabels, PanelContent::Locations) => ActionVariant::ForceCount,
+            (PanelContent::PartsWithLabels, PanelContent::PartsInLocation) => {
+                ActionVariant::ForceCount
+            }
+
             (PanelContent::Parts, _) => ActionVariant::None,
             (PanelContent::Locations, _) => ActionVariant::None,
 
