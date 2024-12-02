@@ -2,10 +2,7 @@ use crate::store::{cache::CountCacheSum, filter::Query, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{
-        ActionDescriptor, EnterAction, FilterError, FilterStatus, PanelContent, PanelData,
-        PanelItem,
-    },
+    model::{ActionDescriptor, EnterAction, FilterStatus, PanelContent, PanelData, PanelItem},
     panel_parts::PanelPartLocationsSelection,
 };
 
@@ -13,13 +10,15 @@ use super::{
 pub struct PanelLabelSelection {
     parent: ParentPanel,
     cached: CachingPanelData,
+    query: Option<Query>,
 }
 
 impl PanelLabelSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize) -> Self {
+    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, query: Option<Query>) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
+            query,
         }
     }
 
@@ -27,6 +26,12 @@ impl PanelLabelSelection {
         store
             .all_label_keys()
             .iter()
+            .filter(|i| {
+                self.query
+                    .as_ref()
+                    .map(|q| i.0.contains(q.current_query().as_str()))
+                    .unwrap_or(true)
+            })
             .map(|(label_key, count)| {
                 PanelItem::new(
                     label_key,
@@ -61,6 +66,7 @@ impl PanelData for PanelLabelSelection {
                     self,
                     item_id.to_string(),
                     idx,
+                    None,
                 )),
                 0,
             )
@@ -111,12 +117,31 @@ impl PanelData for PanelLabelSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn filter_status(&self) -> super::model::FilterStatus {
+        match &self.query {
+            Some(q) => FilterStatus::Query(q.current_query()),
+            None => FilterStatus::NotApplied,
+        }
+    }
+
     fn filter(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::FilterError> {
-        Err(FilterError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, parent.1, Some(query))),
+                0,
+            ))
+        }
     }
 }
 
@@ -125,14 +150,21 @@ pub struct PanelLabelValueSelection {
     parent: ParentPanel,
     cached: CachingPanelData,
     key: String,
+    query: Option<Query>,
 }
 
 impl PanelLabelValueSelection {
-    pub fn new(parent: Box<dyn PanelData>, key: String, return_idx: usize) -> Self {
+    pub fn new(
+        parent: Box<dyn PanelData>,
+        key: String,
+        return_idx: usize,
+        query: Option<Query>,
+    ) -> Self {
         Self {
             parent: ParentPanel::new(parent, return_idx),
             key,
             cached: CachingPanelData::new(),
+            query,
         }
     }
 
@@ -140,6 +172,12 @@ impl PanelLabelValueSelection {
         store
             .all_label_values(&self.key)
             .iter()
+            .filter(|i| {
+                self.query
+                    .as_ref()
+                    .map(|q| i.0.contains(q.current_query().as_str()))
+                    .unwrap_or(true)
+            })
             .map(|(label_value, count)| {
                 PanelItem::new(
                     label_value,
@@ -225,12 +263,31 @@ impl PanelData for PanelLabelValueSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
+    fn filter_status(&self) -> super::model::FilterStatus {
+        match &self.query {
+            Some(q) => FilterStatus::Query(q.current_query()),
+            None => FilterStatus::NotApplied,
+        }
+    }
+
     fn filter(
         self: Box<Self>,
-        _query: Query,
+        query: Query,
         _store: &Store,
     ) -> Result<EnterAction, super::model::FilterError> {
-        Err(FilterError::NotSupported(EnterAction(self, 0)))
+        let parent = self.parent.enter();
+
+        if query.is_empty() {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, self.key, parent.1, None)),
+                0,
+            ))
+        } else {
+            Ok(EnterAction(
+                Box::new(Self::new(parent.0, self.key, parent.1, Some(query))),
+                0,
+            ))
+        }
     }
 }
 
