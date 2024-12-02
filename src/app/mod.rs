@@ -8,7 +8,7 @@ use tui_input::Input;
 use view::{ActivePanel, CreateMode, DialogState, View};
 
 use crate::store::{
-    cache::CountCacheSum, search::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata,
+    cache::CountCacheSum, filter::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata,
     Store,
 };
 
@@ -1868,36 +1868,36 @@ impl App {
         Ok(AppEvents::ReloadDataSelect(new_name))
     }
 
-    fn open_search_dialog(&mut self) {
-        match self.get_active_panel_data().search_status() {
-            model::SearchStatus::NotSupported => (),
-            model::SearchStatus::NotApplied => {
-                self.view.search_query.reset();
-                self.view.search_dialog = DialogState::Visible;
+    fn open_filter_dialog(&mut self) {
+        match self.get_active_panel_data().filter_status() {
+            model::FilterStatus::NotSupported => (),
+            model::FilterStatus::NotApplied => {
+                self.view.filter_query.reset();
+                self.view.filter_dialog = DialogState::Visible;
             }
-            model::SearchStatus::Query(q) => {
-                self.view.search_query = Input::new(q);
-                self.view.search_dialog = DialogState::Visible;
+            model::FilterStatus::Query(q) => {
+                self.view.filter_query = Input::new(q);
+                self.view.filter_dialog = DialogState::Visible;
             }
         }
     }
 
-    fn perform_search(&mut self) -> AppEvents {
-        let query = Query::new(self.view.search_query.value());
+    fn perform_filter(&mut self) -> AppEvents {
+        let query = Query::new(self.view.filter_query.value());
         if let Err(_e) = query {
             // TODO handle errors once the parsing gets complex
             return AppEvents::Redraw;
         }
         let query = query.unwrap();
 
-        let selected = if self.view.search_selected.is_none() {
-            self.view.search_selected = Some(
+        let selected = if self.view.filter_selected.is_none() {
+            self.view.filter_selected = Some(
                 self.get_active_panel_data()
                     .item_name(self.view.get_active_panel_selection(), &self.store),
             );
-            self.view.search_selected.as_ref().unwrap()
+            self.view.filter_selected.as_ref().unwrap()
         } else {
-            self.view.search_selected.as_ref().unwrap()
+            self.view.filter_selected.as_ref().unwrap()
         };
 
         match self.view.active {
@@ -1905,11 +1905,11 @@ impl App {
                 // Replacing a non-copy structure member in a mutable self requires a workaround
                 // using the std::memory::replace and a temporary "empty" value
                 let old = replace(&mut self.model.panel_a, Box::new(TemporaryEmptyPanel()));
-                match old.search(query, &self.store) {
+                match old.filter(query, &self.store) {
                     Ok(next) => {
                         self.model.panel_a = next.0;
                         self.view.panel_a.selected = next.1;
-                        self.view.search_dialog = DialogState::Hidden;
+                        self.view.filter_dialog = DialogState::Hidden;
                     }
                     Err(e) => {
                         self.model.panel_a = e.return_to().0;
@@ -1922,11 +1922,11 @@ impl App {
                 // Replacing a non-copy structure member in a mutable self requires a workaround
                 // using the std::memory::replace and a temporary "empty" value
                 let old = replace(&mut self.model.panel_b, Box::new(TemporaryEmptyPanel()));
-                match old.search(query, &self.store) {
+                match old.filter(query, &self.store) {
                     Ok(next) => {
                         self.model.panel_b = next.0;
                         self.view.panel_b.selected = next.1;
-                        self.view.search_dialog = DialogState::Hidden;
+                        self.view.filter_dialog = DialogState::Hidden;
                     }
                     Err(e) => {
                         self.model.panel_b = e.return_to().0;
@@ -2177,11 +2177,11 @@ impl PanelData for TemporaryEmptyPanel {
         todo!()
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         _query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, model::SearchError> {
+    ) -> Result<EnterAction, model::FilterError> {
         todo!()
     }
 }

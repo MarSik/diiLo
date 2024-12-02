@@ -35,9 +35,9 @@ pub struct View {
     pub(super) create_save_into: Option<PartId>,
     pub(crate) alert_title: String,
     pub(crate) alert_text: String,
-    pub(crate) search_dialog: DialogState,
-    pub(crate) search_query: Input,
-    pub(crate) search_selected: Option<String>,
+    pub(crate) filter_dialog: DialogState,
+    pub(crate) filter_query: Input,
+    pub(crate) filter_selected: Option<String>,
 }
 
 impl View {
@@ -46,8 +46,8 @@ impl View {
             return Hot::AlertDialog;
         }
 
-        if self.search_dialog == DialogState::Visible {
-            return Hot::SearchDialog;
+        if self.filter_dialog == DialogState::Visible {
+            return Hot::FilterDialog;
         }
 
         if self.delete_dialog == DialogState::Visible {
@@ -83,18 +83,18 @@ impl View {
         }
     }
 
-    // Disables info view, search and other "pop-up" and quick edit actions
+    // Disables info view, filter and other "pop-up" and quick edit actions
     pub fn cancel_on_panel_change(&mut self) {
         self.active_info = false;
         self.cancel_on_move();
     }
 
-    // Disables quick actions like search and return name if search
+    // Disables quick actions like filter and return name if filter
     // gets cancelled
     pub fn cancel_on_move(&mut self) {
         self.active_quick_select = false;
         self.info_scroll = 0;
-        self.search_selected = None;
+        self.filter_selected = None;
     }
 
     pub fn switch_active_panel(&mut self) {
@@ -285,7 +285,7 @@ pub enum Hot {
     CreatePartDialog,
     AlertDialog,
     DeleteDialog,
-    SearchDialog,
+    FilterDialog,
 }
 
 #[derive(Debug, Default)]

@@ -1,11 +1,11 @@
 use crate::{
     app::model::PanelItem,
-    store::{cache::CountCacheSum, search::Query, LocationId, Store},
+    store::{cache::CountCacheSum, filter::Query, LocationId, Store},
 };
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, SearchStatus},
+    model::{ActionDescriptor, EnterAction, FilterStatus, PanelContent, PanelData},
 };
 
 #[derive(Debug)]
@@ -118,18 +118,18 @@ impl PanelData for PanelProjectSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
-    fn search_status(&self) -> super::model::SearchStatus {
+    fn filter_status(&self) -> super::model::FilterStatus {
         match &self.query {
-            Some(q) => SearchStatus::Query(q.current_query()),
-            None => SearchStatus::NotApplied,
+            Some(q) => FilterStatus::Query(q.current_query()),
+            None => FilterStatus::NotApplied,
         }
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
+    ) -> Result<EnterAction, super::model::FilterError> {
         let parent = self.parent.enter();
 
         if query.is_empty() {
@@ -257,18 +257,18 @@ impl PanelData for PanelProjectPartsSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
-    fn search_status(&self) -> super::model::SearchStatus {
+    fn filter_status(&self) -> super::model::FilterStatus {
         match &self.query {
-            Some(q) => SearchStatus::Query(q.current_query()),
-            None => SearchStatus::NotApplied,
+            Some(q) => FilterStatus::Query(q.current_query()),
+            None => FilterStatus::NotApplied,
         }
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
+    ) -> Result<EnterAction, super::model::FilterError> {
         let parent = self.parent.enter();
 
         if query.is_empty() {

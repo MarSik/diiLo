@@ -15,8 +15,8 @@ use super::model::PanelData;
 use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLayout};
 use super::App;
 
+mod filter;
 mod render_icons;
-mod search;
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -191,7 +191,7 @@ impl Widget for &App {
         let s_del_action = self.f8_action();
 
         let actions = [
-            "search",
+            "filter",
             "rename",
             "view",
             "edit",
@@ -225,12 +225,12 @@ impl Widget for &App {
             }
         }
 
-        match self.get_active_panel_data().search_status() {
-            super::model::SearchStatus::NotSupported => {
+        match self.get_active_panel_data().filter_status() {
+            super::model::FilterStatus::NotSupported => {
                 action_style[0] = action_style[0].dim().dark_gray();
             }
-            super::model::SearchStatus::NotApplied => (),
-            super::model::SearchStatus::Query(_) => {
+            super::model::FilterStatus::NotApplied => (),
+            super::model::FilterStatus::Query(_) => {
                 action_style[0] = action_style[0].on_green();
             }
         }
@@ -318,8 +318,8 @@ impl Widget for &App {
             );
         }
 
-        if self.view.search_dialog == DialogState::Visible {
-            self.search_dialog(full_area, buf);
+        if self.view.filter_dialog == DialogState::Visible {
+            self.filter_dialog(full_area, buf);
         }
 
         if self.view.alert_dialog == DialogState::Visible {

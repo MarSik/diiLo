@@ -8,7 +8,7 @@ use super::{
 
 impl App {
     // Function keys follow a common pattern
-    // F1 - search, info, view only action
+    // F1 - filter, info, view only action
     // F2 - quick name and summary change
     // F3 - view, details and reports
     // F4 - edit
@@ -74,7 +74,7 @@ impl App {
                 .scroll_to(self.get_active_panel_data().len(&self.store) - 1),
             KeyCode::Tab => self.view.switch_active_panel(),
             KeyCode::Enter => return Ok(self.press_enter()),
-            KeyCode::F(1) | KeyCode::Char('/') => self.open_search_dialog(),
+            KeyCode::F(1) | KeyCode::Char('/') => self.open_filter_dialog(),
             KeyCode::Char(c) => {
                 let val = self
                     .view
@@ -236,50 +236,50 @@ impl App {
                 | KeyCode::PageUp => return Ok(self.handle_global_key_event(key_event)?),
                 _ => {}
             },
-            Hot::SearchDialog => match key_event.code {
+            Hot::FilterDialog => match key_event.code {
                 KeyCode::Esc => {
-                    self.view.search_dialog = DialogState::Hidden;
+                    self.view.filter_dialog = DialogState::Hidden;
                 }
                 KeyCode::Enter => {
-                    return Ok(self.perform_search());
+                    return Ok(self.perform_filter());
                 }
                 KeyCode::F(12) => {
-                    self.view.search_query.reset();
-                    return Ok(self.perform_search());
+                    self.view.filter_query.reset();
+                    return Ok(self.perform_filter());
                 }
                 KeyCode::Char(c) => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::InsertChar(c));
                 }
                 KeyCode::Left => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::GoToPrevChar);
                 }
                 KeyCode::Right => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::GoToNextChar);
                 }
                 KeyCode::Backspace => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::DeletePrevChar);
                 }
                 KeyCode::Delete => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::DeleteNextChar);
                 }
                 KeyCode::Home => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::GoToStart);
                 }
                 KeyCode::End => {
                     self.view
-                        .search_query
+                        .filter_query
                         .handle(tui_input::InputRequest::GoToEnd);
                 }
                 _ => {}

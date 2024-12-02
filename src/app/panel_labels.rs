@@ -1,10 +1,10 @@
-use crate::store::{cache::CountCacheSum, search::Query, Store};
+use crate::store::{cache::CountCacheSum, filter::Query, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
     model::{
-        ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError,
-        SearchStatus,
+        ActionDescriptor, EnterAction, FilterError, FilterStatus, PanelContent, PanelData,
+        PanelItem,
     },
     panel_parts::PanelPartLocationsSelection,
 };
@@ -111,12 +111,12 @@ impl PanelData for PanelLabelSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         _query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    ) -> Result<EnterAction, super::model::FilterError> {
+        Err(FilterError::NotSupported(EnterAction(self, 0)))
     }
 }
 
@@ -225,12 +225,12 @@ impl PanelData for PanelLabelValueSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         _query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    ) -> Result<EnterAction, super::model::FilterError> {
+        Err(FilterError::NotSupported(EnterAction(self, 0)))
     }
 }
 
@@ -361,18 +361,18 @@ impl PanelData for PanelPartByLabelSelection {
         self.cached.item(idx, || self.load_cache(store))
     }
 
-    fn search_status(&self) -> super::model::SearchStatus {
+    fn filter_status(&self) -> super::model::FilterStatus {
         match &self.query {
-            Some(q) => SearchStatus::Query(q.current_query()),
-            None => SearchStatus::NotApplied,
+            Some(q) => FilterStatus::Query(q.current_query()),
+            None => FilterStatus::NotApplied,
         }
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
+    ) -> Result<EnterAction, super::model::FilterError> {
         let parent = self.parent.enter();
 
         if query.is_empty() {

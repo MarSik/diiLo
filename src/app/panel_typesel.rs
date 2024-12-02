@@ -1,7 +1,7 @@
-use crate::store::{search::Query, Store};
+use crate::store::{filter::Query, Store};
 
 use super::{
-    model::{ActionDescriptor, EnterAction, PanelContent, PanelData, PanelItem, SearchError},
+    model::{ActionDescriptor, EnterAction, FilterError, PanelContent, PanelData, PanelItem},
     panel_labels::PanelLabelSelection,
     panel_locations::PanelLocationSelection,
     panel_parts::PanelPartSelection,
@@ -95,11 +95,11 @@ impl PanelData for PanelTypeSelection {
         self.data.get(idx).unwrap().clone()
     }
 
-    fn search(
+    fn filter(
         self: Box<Self>,
         _query: Query,
         _store: &Store,
-    ) -> Result<EnterAction, super::model::SearchError> {
-        Err(SearchError::NotSupported(EnterAction(self, 0)))
+    ) -> Result<EnterAction, super::model::FilterError> {
+        Err(FilterError::NotSupported(EnterAction(self, 0)))
     }
 }

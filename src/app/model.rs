@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::store::{search::Query, LocationId, PartId, SourceId, Store};
+use crate::store::{filter::Query, LocationId, PartId, SourceId, Store};
 
 use super::panel_typesel::PanelTypeSelection;
 
@@ -76,43 +76,43 @@ pub(super) trait PanelData: std::fmt::Debug {
     // Return None when the content is empty.
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize>;
 
-    // Return the search status of this panel
-    // It can signal that search is not supported (and search key should do nothing),
-    // or that search can be used, but it is not at the moment, or return
-    // the current search query.
-    fn search_status(&self) -> SearchStatus {
-        SearchStatus::NotSupported
+    // Return the filter status of this panel
+    // It can signal that filter is not supported (and filter key should do nothing),
+    // or that filter can be used, but it is not at the moment, or return
+    // the current filter query.
+    fn filter_status(&self) -> FilterStatus {
+        FilterStatus::NotSupported
     }
 
-    // Update the search query the current panel uses
-    fn search(self: Box<Self>, query: Query, store: &Store) -> Result<EnterAction, SearchError>;
+    // Update the filter query the current panel uses
+    fn filter(self: Box<Self>, query: Query, store: &Store) -> Result<EnterAction, FilterError>;
 }
 
 // the first element is the panel data source to activate
 // the second element is the menu item to activate after move
 pub struct EnterAction(pub(super) Box<dyn PanelData>, pub(super) usize);
 
-pub enum SearchError {
+pub enum FilterError {
     NotSupported(EnterAction),
 }
 
-impl Display for SearchError {
+impl Display for FilterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SearchError::NotSupported(_) => f.write_str("search not supported"),
+            FilterError::NotSupported(_) => f.write_str("filter not supported"),
         }
     }
 }
 
-impl SearchError {
+impl FilterError {
     pub fn return_to(self) -> EnterAction {
         match self {
-            SearchError::NotSupported(enter_action) => enter_action,
+            FilterError::NotSupported(enter_action) => enter_action,
         }
     }
 }
 
-pub enum SearchStatus {
+pub enum FilterStatus {
     NotSupported,
     NotApplied,
     Query(String),
