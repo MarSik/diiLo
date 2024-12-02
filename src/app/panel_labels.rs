@@ -29,8 +29,7 @@ impl PanelLabelSelection {
             .filter(|i| {
                 self.query
                     .as_ref()
-                    .map(|q| i.0.contains(q.current_query().as_str()))
-                    .unwrap_or(true)
+                    .map_or(true, |q| i.0.contains(q.current_query().as_str()))
             })
             .map(|(label_key, count)| {
                 PanelItem::new(
@@ -175,8 +174,7 @@ impl PanelLabelValueSelection {
             .filter(|i| {
                 self.query
                     .as_ref()
-                    .map(|q| i.0.contains(q.current_query().as_str()))
-                    .unwrap_or(true)
+                    .map_or(true, |q| i.0.contains(q.current_query().as_str()))
             })
             .map(|(label_value, count)| {
                 PanelItem::new(
