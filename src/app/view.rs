@@ -6,6 +6,7 @@ use super::{model::PanelItem, ActionVariant};
 
 #[derive(Debug, Default)]
 pub struct View {
+    pub(super) escape_keys: bool,
     pub(super) layout: ViewLayout,
     pub(super) active: ActivePanel,
     // Focus the info panel in info layout

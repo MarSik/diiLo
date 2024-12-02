@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{
     errs::AppError,
@@ -22,6 +22,10 @@ impl App {
     // F12 - save, exit
     fn handle_global_key_event(&mut self, key_event: KeyEvent) -> Result<AppEvents, AppError> {
         match key_event.code {
+            KeyCode::Esc => {
+                self.view.escape_keys = true;
+                return Ok(AppEvents::Redraw);
+            }
             KeyCode::F(2) => return self.press_f2(),
 
             KeyCode::F(3) => self.view.switch_full_split_layout(),
@@ -32,6 +36,10 @@ impl App {
 
             KeyCode::F(7) => return self.press_f7(),
             KeyCode::F(8) => return self.press_f8(),
+
+            KeyCode::F(9) if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                return self.press_ctrl_f9()
+            }
             KeyCode::F(9) => return self.press_f9(),
 
             KeyCode::F(12) => return Ok(AppEvents::Quit),
@@ -88,7 +96,69 @@ impl App {
         Ok(AppEvents::Redraw)
     }
 
+    fn escape_key(&self, key_event: KeyEvent) -> KeyEvent {
+        match key_event.code {
+            KeyCode::Char('0') => KeyEvent {
+                code: KeyCode::F(10),
+                ..key_event
+            },
+            KeyCode::Char('1') => KeyEvent {
+                code: KeyCode::F(1),
+                ..key_event
+            },
+            KeyCode::Char('2') => KeyEvent {
+                code: KeyCode::F(2),
+                ..key_event
+            },
+            KeyCode::Char('3') => KeyEvent {
+                code: KeyCode::F(3),
+                ..key_event
+            },
+            KeyCode::Char('4') => KeyEvent {
+                code: KeyCode::F(4),
+                ..key_event
+            },
+            KeyCode::Char('5') => KeyEvent {
+                code: KeyCode::F(5),
+                ..key_event
+            },
+            KeyCode::Char('6') => KeyEvent {
+                code: KeyCode::F(6),
+                ..key_event
+            },
+            KeyCode::Char('7') => KeyEvent {
+                code: KeyCode::F(7),
+                ..key_event
+            },
+            KeyCode::Char('8') => KeyEvent {
+                code: KeyCode::F(8),
+                ..key_event
+            },
+            KeyCode::Char('9') => KeyEvent {
+                code: KeyCode::F(9),
+                ..key_event
+            },
+            KeyCode::Char('q') => KeyEvent {
+                code: KeyCode::F(12),
+                ..key_event
+            },
+            KeyCode::Esc => KeyEvent {
+                code: KeyCode::Menu,
+                ..key_event
+            },
+            _ => key_event,
+        }
+    }
+
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> anyhow::Result<AppEvents> {
+        let key_event = if self.view.escape_keys {
+            self.escape_key(key_event)
+        } else {
+            key_event
+        };
+
+        self.view.escape_keys = false;
+
         match self.view.hot() {
             Hot::ActionCountDialog => match key_event.code {
                 KeyCode::Up => self.view.action_dialog_count_up(),

@@ -6,7 +6,7 @@ use crossterm::event::{Event, EventStream, KeyEventKind};
 use diilo::app::{App, AppEvents};
 use diilo::store::{default_store_path, Store};
 use futures::{executor::block_on, select, FutureExt, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use tempdir::TempDir;
 
 fn main() -> anyhow::Result<()> {
@@ -181,6 +181,7 @@ async fn handle_events(app: &mut App, event_stream: &mut EventStream) -> anyhow:
     // Wait on multiple sources - event bus (TODO), keyboard
     select! {
         event = event_stream.next().fuse() => {
+            trace!("Event: {:?}", event);
             match event {
                 // it's important to check that the event is a key press event as
                 // crossterm also emits key release and repeat events on Windows.

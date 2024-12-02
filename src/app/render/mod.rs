@@ -33,7 +33,10 @@ impl Widget for &App {
 
         let layout_header = layout[0];
         let layout_panels = layout[1];
-        let layout_status = layout[2];
+
+        let layout_status =
+            Layout::horizontal([Constraint::Min(1), Constraint::Length(6)]).split(layout[2]);
+
         let layout_fkeys_low = layout[3];
         let layout_fkeys_high = layout[4];
 
@@ -294,7 +297,15 @@ impl Widget for &App {
         Paragraph::new(self.view.status.as_str())
             .on_dark_gray()
             .gray()
-            .render(layout_status, buf);
+            .render(layout_status[0], buf);
+
+        let esc_flags = if self.view.escape_keys { "[ESC]" } else { "" };
+
+        Paragraph::new(esc_flags)
+            .on_dark_gray()
+            .red()
+            .right_aligned()
+            .render(layout_status[1], buf);
 
         if self.view.action_count_dialog == DialogState::Visible {
             self.action_count_dialog(full_area, buf);
@@ -510,7 +521,8 @@ impl App {
             super::ActionVariant::SolderPart => render_icons::SOLDER,
             super::ActionVariant::UnsolderPart => render_icons::UNSOLDER,
             super::ActionVariant::OrderPartLocal => render_icons::ORDER,
-            super::ActionVariant::RequirePartLocal => render_icons::REQUIRE,
+            super::ActionVariant::RequirePartInLocationLocal => render_icons::REQUIRE,
+            super::ActionVariant::RequirePartInProjectLocal => render_icons::REQUIRE,
             super::ActionVariant::Delete => render_icons::DELETE,
             super::ActionVariant::ForceCount => render_icons::FORCE_COUNT,
             super::ActionVariant::ForceCountLocal => render_icons::FORCE_COUNT,

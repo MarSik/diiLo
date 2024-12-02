@@ -90,7 +90,8 @@ pub enum ActionVariant {
     SolderPart,
     UnsolderPart,
     OrderPartLocal,
-    RequirePartLocal,
+    RequirePartInLocationLocal,
+    RequirePartInProjectLocal,
     ForceCount,
     ForceCountLocal,
     Delete,
@@ -112,7 +113,8 @@ impl ActionVariant {
             ActionVariant::SolderPart => "solder",
             ActionVariant::UnsolderPart => "unsolder",
             ActionVariant::OrderPartLocal => "order",
-            ActionVariant::RequirePartLocal => "require",
+            ActionVariant::RequirePartInLocationLocal => "require",
+            ActionVariant::RequirePartInProjectLocal => "require",
             ActionVariant::ForceCount => "force count",
             ActionVariant::ForceCountLocal => "force count",
             ActionVariant::Delete => "delete",
@@ -123,7 +125,8 @@ impl ActionVariant {
         !matches!(
             self,
             ActionVariant::OrderPartLocal
-                | ActionVariant::RequirePartLocal
+                | ActionVariant::RequirePartInLocationLocal
+                | ActionVariant::RequirePartInProjectLocal
                 | ActionVariant::Delete
                 | ActionVariant::ClonePart
                 | ActionVariant::CreatePart
@@ -146,7 +149,8 @@ impl ActionVariant {
             ActionVariant::SolderPart => "Solder part",
             ActionVariant::UnsolderPart => "Unsolder part",
             ActionVariant::OrderPartLocal => "Order part",
-            ActionVariant::RequirePartLocal => "Require part",
+            ActionVariant::RequirePartInLocationLocal => "Require part",
+            ActionVariant::RequirePartInProjectLocal => "Require part",
             ActionVariant::Delete => "Delete part",
             ActionVariant::ForceCount => "Force count",
             ActionVariant::ForceCountLocal => "Force count",
@@ -168,7 +172,8 @@ impl ActionVariant {
             ActionVariant::SolderPart => true,
             ActionVariant::UnsolderPart => true,
             ActionVariant::OrderPartLocal => true,
-            ActionVariant::RequirePartLocal => true,
+            ActionVariant::RequirePartInLocationLocal => true,
+            ActionVariant::RequirePartInProjectLocal => true,
             ActionVariant::Delete => false,
             ActionVariant::ForceCount => true,
             ActionVariant::ForceCountLocal => true,
@@ -240,9 +245,17 @@ impl App {
         match self.get_action_direction() {
             (PanelContent::PartsFromSources, _) => ActionVariant::OrderPartLocal,
             (PanelContent::PartsInOrders, _) => ActionVariant::OrderPartLocal,
-            (PanelContent::PartsInLocation, _) => ActionVariant::RequirePartLocal,
-            (PanelContent::LocationOfParts, _) => ActionVariant::RequirePartLocal,
-            (PanelContent::PartsInProjects, _) => ActionVariant::RequirePartLocal,
+            (PanelContent::PartsInLocation, _) => ActionVariant::RequirePartInLocationLocal,
+            (PanelContent::LocationOfParts, _) => ActionVariant::RequirePartInLocationLocal,
+            (PanelContent::PartsInProjects, _) => ActionVariant::RequirePartInProjectLocal,
+            (_, _) => ActionVariant::None,
+        }
+    }
+
+    pub fn ctrl_f9_action(&self) -> ActionVariant {
+        match self.get_action_direction() {
+            (PanelContent::PartsInLocation, _) => ActionVariant::ForceCountLocal,
+            (PanelContent::LocationOfParts, _) => ActionVariant::ForceCountLocal,
             (_, _) => ActionVariant::None,
         }
     }
@@ -391,7 +404,8 @@ impl App {
                     ActionVariant::DeliverPart => self.finish_action_deliver(&source, &destination),
                     ActionVariant::SolderPart => self.finish_action_solder(&source, &destination),
                     ActionVariant::UnsolderPart => self.finish_action_unsolder(source, destination),
-                    ActionVariant::RequirePartLocal => {
+                    ActionVariant::RequirePartInLocationLocal
+                    | ActionVariant::RequirePartInProjectLocal => {
                         self.finish_action_require_local(source.as_ref())
                     }
                     ActionVariant::Error => Err(AppError::BadOperationContext.into()),
@@ -798,6 +812,19 @@ impl App {
         self.interpret_action(action)
     }
 
+    pub fn press_ctrl_f9(&mut self) -> Result<AppEvents, AppError> {
+        let action = self.ctrl_f9_action();
+
+        if !self
+            .get_active_panel_data()
+            .item_actionable(self.view.get_active_panel_selection())
+        {
+            return Ok(AppEvents::Nop);
+        }
+
+        self.interpret_action(action)
+    }
+
     fn panel_item_from_id(&self, p_id: &PartId) -> Result<PanelItem, AppError> {
         let obj = self
             .store
@@ -928,7 +955,8 @@ impl App {
                     return Err(dst.unwrap_err());
                 }
             }
-            ActionVariant::RequirePartLocal => {
+            ActionVariant::RequirePartInLocationLocal
+            | ActionVariant::RequirePartInProjectLocal => {
                 return self.prepare_require_part_local(action);
             }
             ActionVariant::Delete => {
