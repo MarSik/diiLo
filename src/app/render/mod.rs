@@ -12,6 +12,10 @@ use render_icons::DrawFixed6x3Icon;
 use tui_big_text::{BigText, PixelSize};
 
 use super::kbd::EscMode;
+use super::model::PanelContent::{
+    self, LabelKeys, Labels, LocationOfParts, Locations, Parts, PartsFromSources, PartsInLocation,
+    PartsInOrders, PartsInProjects, PartsWithLabels, Projects, Sources, TypeSelection,
+};
 use super::model::PanelData;
 use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLayout};
 use super::App;
@@ -612,11 +616,28 @@ impl App {
         let area = Self::center(area, Constraint::Length(60), Constraint::Length(20));
         Clear.render(area, buf);
 
+        let title_prefix = if self.view.create_save_into.is_some() {
+            "Update"
+        } else {
+            "Create"
+        };
+
+        let title_suffix = match self.get_active_panel_data().data_type() {
+            Parts | PartsInLocation | PartsWithLabels | PartsFromSources | PartsInOrders
+            | PartsInProjects => "part",
+            Locations | LocationOfParts => "location",
+            Sources => "source",
+            Projects => "project",
+
+            // Not used, but left here to catch errors
+            PanelContent::None | TypeSelection | LabelKeys | Labels => todo!(),
+        };
+
         let block = Block::bordered()
             .border_set(border::EMPTY)
             .border_style(Style::new().on_green())
             .padding(Padding::symmetric(2, 1))
-            .title(" Create part ")
+            .title(format!(" {} {} ", title_prefix, title_suffix))
             .title_bottom(" confirm by <Enter> / cancel by <ESC> ")
             .on_dark_gray();
 

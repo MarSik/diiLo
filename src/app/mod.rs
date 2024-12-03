@@ -1064,6 +1064,9 @@ impl App {
         if active.data_type().can_make() {
             let selection = self.view.get_active_panel_selection();
             let item = active.item(selection, &self.store);
+            if item.id.is_none() {
+                return Ok(AppEvents::Nop);
+            }
 
             self.view.create_name = Input::new(item.name);
             self.view.create_summary = Input::new(item.summary);
