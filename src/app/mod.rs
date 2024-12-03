@@ -44,6 +44,8 @@ pub enum AppEvents {
     Nop,
     // Redraw UI
     Redraw,
+    // Clear terminal and redraw
+    FullRedraw,
     // Reload data model
     ReloadData,
     // Reload data model and then select item on active panel

@@ -60,7 +60,13 @@ fn main() -> anyhow::Result<()> {
             }
 
             match handle_events(&mut app, &mut event_stream).await {
-                Ok(AppEvents::Redraw) => needs_refresh = true,
+                Ok(AppEvents::Redraw) => {
+                    needs_refresh = true;
+                }
+                Ok(AppEvents::FullRedraw) => {
+                    terminal.clear()?;
+                    needs_refresh = true;
+                }
                 Ok(AppEvents::ReloadData) => {
                     // TODO reload data store?
                     app.reload();

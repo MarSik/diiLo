@@ -6,6 +6,24 @@ use super::{
     App, AppEvents,
 };
 
+#[derive(Debug, PartialEq, Eq, Default)]
+pub(crate) enum EscMode {
+    #[default]
+    None,
+    Fkeys,
+    FKeysControl,
+}
+
+impl EscMode {
+    fn next(&self) -> Self {
+        match self {
+            EscMode::None => EscMode::Fkeys,
+            EscMode::Fkeys => EscMode::FKeysControl,
+            EscMode::FKeysControl => EscMode::None,
+        }
+    }
+}
+
 impl App {
     // Function keys follow a common pattern
     // F1 - filter, info, view only action
@@ -23,7 +41,7 @@ impl App {
     fn handle_global_key_event(&mut self, key_event: KeyEvent) -> Result<AppEvents, AppError> {
         match key_event.code {
             KeyCode::Esc => {
-                self.view.escape_keys = true;
+                self.view.escape_keys = self.view.escape_keys.next();
                 return Ok(AppEvents::Redraw);
             }
             KeyCode::F(2) => return self.press_f2(),
@@ -83,6 +101,9 @@ impl App {
             KeyCode::Tab => self.view.switch_active_panel(),
             KeyCode::Enter => return Ok(self.press_enter()),
             KeyCode::F(1) | KeyCode::Char('/') => self.open_filter_dialog(),
+            KeyCode::Char('l') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                return Ok(AppEvents::FullRedraw)
+            }
             KeyCode::Char(c) => {
                 let val = self
                     .view
@@ -96,54 +117,66 @@ impl App {
         Ok(AppEvents::Redraw)
     }
 
-    fn escape_key(&self, key_event: KeyEvent) -> KeyEvent {
+    fn escape_key(&self, key_event: KeyEvent, modifiers: KeyModifiers) -> KeyEvent {
         match key_event.code {
             KeyCode::Char('0') => KeyEvent {
                 code: KeyCode::F(10),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('1') => KeyEvent {
                 code: KeyCode::F(1),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('2') => KeyEvent {
                 code: KeyCode::F(2),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('3') => KeyEvent {
                 code: KeyCode::F(3),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('4') => KeyEvent {
                 code: KeyCode::F(4),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('5') => KeyEvent {
                 code: KeyCode::F(5),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('6') => KeyEvent {
                 code: KeyCode::F(6),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('7') => KeyEvent {
                 code: KeyCode::F(7),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('8') => KeyEvent {
                 code: KeyCode::F(8),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('9') => KeyEvent {
                 code: KeyCode::F(9),
+                modifiers,
                 ..key_event
             },
             KeyCode::Char('q') => KeyEvent {
                 code: KeyCode::F(12),
+                modifiers,
                 ..key_event
             },
-            KeyCode::Esc => KeyEvent {
+            KeyCode::Char(' ') => KeyEvent {
                 code: KeyCode::Menu,
+                modifiers,
                 ..key_event
             },
             _ => key_event,
@@ -151,13 +184,15 @@ impl App {
     }
 
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> anyhow::Result<AppEvents> {
-        let key_event = if self.view.escape_keys {
-            self.escape_key(key_event)
-        } else {
-            key_event
+        let key_event = match self.view.escape_keys {
+            EscMode::None => key_event,
+            EscMode::Fkeys => self.escape_key(key_event, KeyModifiers::empty()),
+            EscMode::FKeysControl => self.escape_key(key_event, KeyModifiers::CONTROL),
         };
 
-        self.view.escape_keys = false;
+        if key_event.code != KeyCode::Esc {
+            self.view.escape_keys = EscMode::None;
+        }
 
         match self.view.hot() {
             Hot::ActionCountDialog => match key_event.code {

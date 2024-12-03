@@ -11,12 +11,19 @@ use ratatui::widgets::{
 use render_icons::DrawFixed6x3Icon;
 use tui_big_text::{BigText, PixelSize};
 
+use super::kbd::EscMode;
 use super::model::PanelData;
 use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLayout};
 use super::App;
 
 mod filter;
 mod render_icons;
+
+// Convert F-key into its array index
+#[allow(non_snake_case)]
+fn Fi(f: usize) -> usize {
+    f - 1
+}
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -182,13 +189,16 @@ impl Widget for &App {
             }
         }
 
-        let fx_block = Block::default();
-
         let item_actionable = self
             .get_active_panel_data()
             .item_actionable(self.view.get_active_panel_selection());
 
-        let s_edit_action = self.f9_action();
+        let s_edit_action = if self.view.escape_keys == EscMode::FKeysControl {
+            self.ctrl_f9_action()
+        } else {
+            self.f9_action()
+        };
+
         let s_copy_action = self.f5_action();
         let s_move_action = self.f6_action();
         let s_del_action = self.f8_action();
@@ -210,78 +220,83 @@ impl Widget for &App {
 
         let mut action_style = [Style::new(); 12];
 
-        for idx in 2..=6 {
-            if actions[idx - 1].is_empty() || !item_actionable {
-                action_style[idx - 1] = action_style[idx - 1].dim().dark_gray()
+        for idx in Fi(2)..=Fi(6) {
+            if actions[idx].is_empty() || !item_actionable {
+                action_style[idx] = action_style[idx].not_bold().dim().dark_gray()
             }
         }
 
-        for idx in 8..=9 {
-            if actions[idx - 1].is_empty() || !item_actionable {
-                action_style[idx - 1] = action_style[idx - 1].dim().dark_gray()
+        for idx in Fi(8)..=Fi(9) {
+            if actions[idx].is_empty() || !item_actionable {
+                action_style[idx] = action_style[idx].dim().dark_gray()
             }
         }
 
-        for idx in 10..=12 {
-            if actions[idx - 1].is_empty() {
-                action_style[idx - 1] = action_style[idx - 1].dim().dark_gray()
+        for idx in Fi(10)..=Fi(12) {
+            if actions[idx].is_empty() {
+                action_style[idx] = action_style[idx].dim().dark_gray()
             }
         }
 
         match self.get_active_panel_data().filter_status() {
             super::model::FilterStatus::NotSupported => {
-                action_style[0] = action_style[0].dim().dark_gray();
+                action_style[Fi(1)] = action_style[Fi(1)].dim().dark_gray();
             }
             super::model::FilterStatus::NotApplied => (),
             super::model::FilterStatus::Query(_) => {
-                action_style[0] = action_style[0].on_green();
+                action_style[Fi(1)] = action_style[Fi(1)].on_green();
             }
         }
 
-        if !self.view.layout.is_dual_panel() && s_copy_action.dual_panel() {
-            action_style[4] = action_style[4].dim().dark_gray();
+        if !self.view.layout.is_dual_panel() && s_copy_action.dual_panel() || !item_actionable {
+            action_style[Fi(5)] = action_style[Fi(5)].dim().dark_gray();
         }
 
-        if !self.view.layout.is_dual_panel() && s_move_action.dual_panel() {
-            action_style[5] = action_style[5].dim().dark_gray();
+        if !self.view.layout.is_dual_panel() && s_move_action.dual_panel() || !item_actionable {
+            action_style[Fi(6)] = action_style[Fi(6)].dim().dark_gray();
         }
 
         if !self.get_active_panel_data().data_type().can_make() {
-            action_style[6] = action_style[6].dim().dark_gray();
+            action_style[Fi(7)] = action_style[Fi(7)].dim().dark_gray();
         };
 
         if !self.get_active_panel_data().data_type().can_delete() || !item_actionable {
-            action_style[7] = action_style[7].dim().dark_gray();
+            action_style[Fi(8)] = action_style[Fi(8)].dim().dark_gray();
         };
 
         if !self.view.layout.is_dual_panel() && s_edit_action.dual_panel() {
-            action_style[8] = action_style[8].dim().dark_gray();
+            action_style[Fi(9)] = action_style[Fi(9)].dim().dark_gray();
         }
 
-        for idx in 1..=6 {
-            let t = Line::from(vec![
-                format!("F{}", idx).bold(),
+        let f_names: Vec<String> = if self.view.escape_keys == EscMode::None {
+            (1..=12).map(|i| format!("F{}", i)).collect()
+        } else {
+            (1..=9)
+                .map(|i| format!(" {}", i))
+                .chain([" 0 ", "", " Q "].map(String::from))
+                .collect()
+        };
+
+        for idx in Fi(1)..=Fi(6) {
+            Line::from(vec![
+                f_names[idx].as_str().bold(),
                 " ".into(),
-                actions[idx - 1].into(),
+                actions[idx].into(),
                 " ".into(),
-            ]);
-            Paragraph::new(t)
-                .block(fx_block.clone())
-                .style(action_style[idx - 1])
-                .render(layout_fkeys_low[idx - 1], buf);
+            ])
+            .patch_style(action_style[idx])
+            .render(layout_fkeys_low[idx], buf);
         }
 
-        for idx in 7..=12 {
-            let t = Line::from(vec![
-                format!("F{}", idx).bold(),
+        for idx in Fi(7)..=Fi(12) {
+            Line::from(vec![
+                f_names[idx].as_str().bold(),
                 " ".into(),
-                actions[idx - 1].into(),
+                actions[idx].into(),
                 " ".into(),
-            ]);
-            Paragraph::new(t)
-                .block(fx_block.clone())
-                .style(action_style[idx - 1])
-                .render(layout_fkeys_high[idx - 7], buf);
+            ])
+            .patch_style(action_style[idx])
+            .render(layout_fkeys_high[idx - Fi(7)], buf);
         }
 
         let header_text = match self.view.active {
@@ -299,11 +314,16 @@ impl Widget for &App {
             .gray()
             .render(layout_status[0], buf);
 
-        let esc_flags = if self.view.escape_keys { "[ESC]" } else { "" };
+        let esc_flags = match self.view.escape_keys {
+            EscMode::None => "",
+            EscMode::Fkeys => "[Fx]",
+            EscMode::FKeysControl => "[C-Fx]",
+        };
 
         Paragraph::new(esc_flags)
             .on_dark_gray()
-            .red()
+            .light_yellow()
+            .bold()
             .right_aligned()
             .render(layout_status[1], buf);
 
