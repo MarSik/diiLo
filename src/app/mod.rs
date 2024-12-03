@@ -1335,8 +1335,8 @@ impl App {
                     .show_empty_in_location(part_id, location_id, true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
-                        .part_by_id(part_id)
-                        .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+                        .part_by_id(location_id)
+                        .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
                 ));
             }
         } else {
