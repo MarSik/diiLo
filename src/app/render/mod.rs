@@ -534,8 +534,11 @@ impl App {
         let action_symbol = match self.view.action_count_dialog_action {
             super::ActionVariant::None => render_icons::EMPTY,
             super::ActionVariant::Error => todo!(),
-            super::ActionVariant::AddLabel => render_icons::LABEL,
-            super::ActionVariant::RemoveLabel => render_icons::LABEL_X,
+            super::ActionVariant::AddLabelToPart | super::ActionVariant::AddPartToLabel => {
+                render_icons::LABEL
+            }
+            super::ActionVariant::RemoveLabelFromPart
+            | super::ActionVariant::RemovePartFromLabel => render_icons::LABEL_X,
             super::ActionVariant::CreatePart => todo!(),
             super::ActionVariant::ClonePart => todo!(),
             super::ActionVariant::RequirePart => render_icons::REQUIRE,

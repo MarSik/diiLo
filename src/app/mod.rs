@@ -81,8 +81,10 @@ pub enum ActionVariant {
     #[default]
     None,
     Error,
-    AddLabel,
-    RemoveLabel,
+    AddLabelToPart,
+    AddPartToLabel,
+    RemoveLabelFromPart,
+    RemovePartFromLabel,
     CreatePart,
     ClonePart,
     RequirePart,
@@ -104,8 +106,10 @@ impl ActionVariant {
         match self {
             ActionVariant::None => "",
             ActionVariant::Error => "",
-            ActionVariant::AddLabel => "label",
-            ActionVariant::RemoveLabel => "unlabel",
+            ActionVariant::AddLabelToPart => "label",
+            ActionVariant::RemoveLabelFromPart => "unlabel",
+            ActionVariant::AddPartToLabel => "label",
+            ActionVariant::RemovePartFromLabel => "unlabel",
             ActionVariant::CreatePart => "make",
             ActionVariant::ClonePart => "clone",
             ActionVariant::RequirePart => "require",
@@ -140,8 +144,10 @@ impl ActionVariant {
         match self {
             ActionVariant::None => "",
             ActionVariant::Error => "",
-            ActionVariant::AddLabel => "Add label",
-            ActionVariant::RemoveLabel => "Remove label",
+            ActionVariant::AddLabelToPart => "Add label",
+            ActionVariant::RemoveLabelFromPart => "Remove label",
+            ActionVariant::AddPartToLabel => "Add label",
+            ActionVariant::RemovePartFromLabel => "Remove label",
             ActionVariant::CreatePart => "Create new part",
             ActionVariant::ClonePart => "Clone part",
             ActionVariant::RequirePart => "Request part",
@@ -163,8 +169,10 @@ impl ActionVariant {
         match self {
             ActionVariant::None => false,
             ActionVariant::Error => false,
-            ActionVariant::AddLabel => false,
-            ActionVariant::RemoveLabel => false,
+            ActionVariant::AddLabelToPart => false,
+            ActionVariant::RemoveLabelFromPart => false,
+            ActionVariant::AddPartToLabel => false,
+            ActionVariant::RemovePartFromLabel => false,
             ActionVariant::CreatePart => false,
             ActionVariant::ClonePart => false,
             ActionVariant::RequirePart => true,
@@ -270,8 +278,10 @@ impl App {
             (p, PanelContent::Locations) if p.contains_parts() => ActionVariant::RequirePart,
             (p, PanelContent::PartsInLocation) if p.contains_parts() => ActionVariant::RequirePart,
 
-            (p, PanelContent::Labels) if p.contains_parts() => ActionVariant::AddLabel,
-            (p, PanelContent::PartsWithLabels) if p.contains_parts() => ActionVariant::AddLabel,
+            (p, PanelContent::Labels) if p.contains_parts() => ActionVariant::AddPartToLabel,
+            (p, PanelContent::PartsWithLabels) if p.contains_parts() => {
+                ActionVariant::AddPartToLabel
+            }
 
             (p, PanelContent::Sources) if p.contains_parts() => ActionVariant::OrderPart,
             (p, PanelContent::PartsInOrders) if p.contains_parts() => ActionVariant::OrderPart,
@@ -285,7 +295,7 @@ impl App {
 
             (PanelContent::Locations, _) => ActionVariant::None,
 
-            (PanelContent::Labels, p) if p.contains_parts() => ActionVariant::AddLabel,
+            (PanelContent::Labels, p) if p.contains_parts() => ActionVariant::AddLabelToPart,
             (PanelContent::Labels, _) => ActionVariant::None,
 
             (PanelContent::Sources, _) => ActionVariant::None,
@@ -304,8 +314,10 @@ impl App {
                 ActionVariant::MovePart
             }
 
-            (p, PanelContent::Labels) if p.contains_parts() => ActionVariant::RemoveLabel,
-            (p, PanelContent::PartsWithLabels) if p.contains_parts() => ActionVariant::RemoveLabel,
+            (p, PanelContent::Labels) if p.contains_parts() => ActionVariant::RemovePartFromLabel,
+            (p, PanelContent::PartsWithLabels) if p.contains_parts() => {
+                ActionVariant::RemovePartFromLabel
+            }
 
             (PanelContent::PartsInLocation, PanelContent::Projects) => ActionVariant::SolderPart,
             (PanelContent::PartsInLocation, PanelContent::PartsInProjects) => {
@@ -323,7 +335,7 @@ impl App {
             (PanelContent::Parts, _) => ActionVariant::None,
             (PanelContent::Locations, _) => ActionVariant::None,
 
-            (PanelContent::Labels, p) if p.contains_parts() => ActionVariant::RemoveLabel,
+            (PanelContent::Labels, p) if p.contains_parts() => ActionVariant::RemoveLabelFromPart,
             (PanelContent::Labels, _) => ActionVariant::None,
 
             (PanelContent::PartsFromSources, PanelContent::Locations) => ActionVariant::DeliverPart,
@@ -395,9 +407,19 @@ impl App {
                     .actionable_objects(destination_idx, &self.store);
 
                 match self.view.action_count_dialog_action {
-                    ActionVariant::AddLabel => self.finish_action_add_label(&source, &destination),
-                    ActionVariant::RemoveLabel => {
-                        self.finish_action_remove_label(&source, &destination)
+                    ActionVariant::AddLabelToPart => {
+                        self.finish_action_add_label_to_part(&source, &destination)
+                    }
+                    ActionVariant::RemoveLabelFromPart => {
+                        self.finish_action_remove_label_from_part(&source, &destination)
+                    }
+                    // Use the same as AddLabelToPart, but revese the order of arguments
+                    ActionVariant::AddPartToLabel => {
+                        self.finish_action_add_label_to_part(&destination, &source)
+                    }
+                    ActionVariant::RemovePartFromLabel => {
+                        // Use the same as RemoveLabelFromPart, but revese the order of arguments
+                        self.finish_action_remove_label_from_part(&destination, &source)
                     }
                     ActionVariant::RequirePart => self.finish_action_require(&source, &destination),
                     ActionVariant::OrderPart => self.finish_action_order(&source, &destination),
@@ -431,62 +453,38 @@ impl App {
         }
     }
 
-    fn finish_action_add_label(
+    fn finish_action_add_label_to_part(
         &mut self,
-        source: &Option<ActionDescriptor>,
-        destination: &Option<ActionDescriptor>,
+        label_ad: &Option<ActionDescriptor>,
+        part_ad: &Option<ActionDescriptor>,
     ) -> anyhow::Result<AppEvents> {
-        if let Some(source) = source
+        let part_id = part_ad
             .as_ref()
-            .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
-        {
-            let destination = destination
-                .as_ref()
-                .and_then(|d| d.part().map(Rc::clone))
-                .ok_or(AppError::BadOperationContext)?;
-            return self.perform_add_label(&destination, source);
-        } else if let Some(destination) = destination
+            .and_then(ActionDescriptor::part)
+            .ok_or(AppError::BadOperationContext)?;
+        let label = label_ad
             .as_ref()
-            .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
-        {
-            let source = source
-                .as_ref()
-                .and_then(|d| d.part().map(Rc::clone))
-                .ok_or(AppError::BadOperationContext)?;
-            return self.perform_add_label(&source, destination);
-        }
-        Ok(AppEvents::Nop)
+            .and_then(ActionDescriptor::label)
+            .ok_or(AppError::BadOperationContext)?;
+
+        self.perform_add_label(part_id, label)
     }
 
-    fn finish_action_remove_label(
+    fn finish_action_remove_label_from_part(
         &mut self,
-        source: &Option<ActionDescriptor>,
-        destination: &Option<ActionDescriptor>,
+        label_ad: &Option<ActionDescriptor>,
+        part_ad: &Option<ActionDescriptor>,
     ) -> anyhow::Result<AppEvents> {
-        if let Some(source) = source
+        let part_id = part_ad
             .as_ref()
-            .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
-        {
-            let destination = destination
-                .as_ref()
-                .and_then(|d| d.part().map(Rc::clone))
-                .ok_or(AppError::BadOperationContext)?;
-            return self
-                .perform_remove_label(&destination, source)
-                .or(Ok(AppEvents::Redraw));
-        } else if let Some(destination) = destination
+            .and_then(ActionDescriptor::part)
+            .ok_or(AppError::BadOperationContext)?;
+        let label = label_ad
             .as_ref()
-            .and_then(|s| s.label().map(|(k, v)| (k.clone(), v.clone())))
-        {
-            let source = source
-                .as_ref()
-                .and_then(|d| d.part().map(Rc::clone))
-                .ok_or(AppError::BadOperationContext)?;
-            return self
-                .perform_remove_label(&source, destination)
-                .or(Ok(AppEvents::Redraw));
-        }
-        Ok(AppEvents::Nop)
+            .and_then(ActionDescriptor::label)
+            .ok_or(AppError::BadOperationContext)?;
+        self.perform_remove_label(part_id, label)
+            .or(Ok(AppEvents::Redraw))
     }
 
     fn finish_action_require(
@@ -861,7 +859,7 @@ impl App {
                     return Err(dst.unwrap_err());
                 }
             }
-            ActionVariant::AddLabel | ActionVariant::RemoveLabel => {
+            ActionVariant::AddLabelToPart | ActionVariant::RemoveLabelFromPart => {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
@@ -871,37 +869,20 @@ impl App {
                     .actionable_objects(self.view.get_active_panel_selection(), &self.store)
                     .ok_or(AppError::BadOperationContext)?;
 
-                if let Some(part_id) = src.part() {
-                    let label = dst.label().ok_or(AppError::BadOperationContext)?;
-                    let label_item = PanelItem {
-                        name: format!("{}: {}", label.0, label.1),
-                        summary: String::with_capacity(0),
-                        data: String::with_capacity(0),
-                        id: None,
-                    };
-                    self.view.show_action_dialog(
-                        action,
-                        Some(label_item),
-                        Some(self.panel_item_from_id(part_id)?),
-                        0,
-                    );
-                } else if let Some(label) = src.label() {
-                    let part_id = dst.part().ok_or(AppError::BadOperationContext)?;
-                    let label_item = PanelItem {
-                        name: format!("{}: {}", label.0, label.1),
-                        summary: String::with_capacity(0),
-                        data: String::with_capacity(0),
-                        id: None,
-                    };
-                    self.view.show_action_dialog(
-                        action,
-                        Some(label_item),
-                        Some(self.panel_item_from_id(part_id)?),
-                        0,
-                    );
-                } else {
-                    return Err(AppError::BadOperationContext);
-                }
+                self.prepare_add_remove_label(src, dst, action)?;
+            }
+            ActionVariant::AddPartToLabel | ActionVariant::RemovePartFromLabel => {
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .ok_or(AppError::BadOperationContext)?;
+                let src = self
+                    .get_active_panel_data()
+                    .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+                    .ok_or(AppError::BadOperationContext)?;
+
+                // Use the same as AddLabelToPart, but reverse arguments
+                self.prepare_add_remove_label(dst, src, action)?;
             }
             ActionVariant::CreatePart => todo!(),
             ActionVariant::ClonePart => {
@@ -975,6 +956,30 @@ impl App {
         // The code above just opens dialogs and does not manipulate data
         // Redraw screen
         Ok(AppEvents::Redraw)
+    }
+
+    fn prepare_add_remove_label(
+        &mut self,
+        label_ad: ActionDescriptor,
+        part_ad: ActionDescriptor,
+        action: ActionVariant,
+    ) -> Result<(), AppError> {
+        let part_id = part_ad.part().ok_or(AppError::BadOperationContext)?;
+        let label = label_ad.label().ok_or(AppError::BadOperationContext)?;
+        let label_item = PanelItem {
+            name: format!("{}: {}", label.0, label.1),
+            summary: String::with_capacity(0),
+            data: String::with_capacity(0),
+            id: None,
+        };
+        self.view.show_action_dialog(
+            action,
+            Some(label_item),
+            Some(self.panel_item_from_id(part_id)?),
+            0,
+        );
+
+        Ok(())
     }
 
     fn prepare_require_part_local(&mut self, action: ActionVariant) -> Result<AppEvents, AppError> {
