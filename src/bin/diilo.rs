@@ -1,3 +1,4 @@
+use std::backtrace::BacktraceStatus;
 use std::fs::{self, File};
 use std::process::Command;
 use std::{env, path::PathBuf};
@@ -63,7 +64,7 @@ fn main() -> anyhow::Result<()> {
         loop {
             if needs_refresh {
                 needs_refresh = false;
-                terminal.draw(|frame| frame.render_widget(&app, frame.area()))?;
+                let _ = terminal.draw(|frame| frame.render_widget(&app, frame.area()));
             }
 
             match handle_events(&mut app, &mut event_stream).await {
@@ -71,7 +72,7 @@ fn main() -> anyhow::Result<()> {
                     needs_refresh = true;
                 }
                 Ok(AppEvents::FullRedraw) => {
-                    terminal.clear()?;
+                    let _ = terminal.clear();
                     needs_refresh = true;
                 }
                 Ok(AppEvents::ReloadData) => {
@@ -102,19 +103,25 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     // The clear is necessary to force full redraw
-                    terminal.clear()?;
+                    let _ = terminal.clear();
                     needs_refresh = true;
                 }
                 Ok(AppEvents::Nop) => {
                     // Redraw just to be sure
                     needs_refresh = true;
                 }
-                Err(err) => return anyhow::Result::Err(err),
+                Err(err) => {
+                    error!("{:}", err);
+                    let backtrace = err.backtrace();
+                    if backtrace.status() == BacktraceStatus::Captured {
+                        error!("Error context: {}", err.backtrace());
+                    }
+                    app.show_alert("Error", err.to_string().as_str());
+                    needs_refresh = true;
+                }
             }
         }
-
-        anyhow::Result::Ok(())
-    })?;
+    });
 
     ratatui::restore();
     Ok(())
