@@ -628,9 +628,11 @@ impl App {
             Locations | LocationOfParts => "location",
             Sources => "source",
             Projects => "project",
+            LabelKeys => "label key",
+            Labels => "label value",
 
             // Not used, but left here to catch errors
-            PanelContent::None | TypeSelection | LabelKeys | Labels => todo!(),
+            PanelContent::None | TypeSelection => todo!(),
         };
 
         let block = Block::bordered()
