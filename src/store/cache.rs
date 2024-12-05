@@ -186,22 +186,22 @@ impl CountCache {
 
         if !self.by_location.contains_key(&key.location_id) {
             self.by_location
-                .insert(key.location_id.clone(), HashSet::new());
+                .insert(Rc::clone(&key.location_id), HashSet::new());
         }
         self.by_location
             .get_mut(&key.location_id)
             .unwrap()
-            .replace(key.clone());
+            .replace(Rc::clone(&key));
 
         if !self.by_part.contains_key(&key.part_id) {
-            self.by_part.insert(key.part_id.clone(), HashSet::new());
+            self.by_part.insert(Rc::clone(&key.part_id), HashSet::new());
         }
         self.by_part
             .get_mut(&key.part_id)
             .unwrap()
-            .replace(key.clone());
+            .replace(Rc::clone(&key));
 
-        self.all.replace(key.clone());
+        self.all.replace(Rc::clone(&key));
 
         key.deref().clone()
     }
