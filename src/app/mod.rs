@@ -2101,7 +2101,7 @@ impl App {
         let count = self.store.get_by_location(part_id, location_id);
 
         self.view.show_action_dialog(
-            ActionVariant::ForceCount,
+            ActionVariant::ForceCountLocal,
             Some(self.panel_item_from_id(part_id)?),
             Some(self.panel_item_from_id(location_id)?),
             count.count().max(0) as usize,
