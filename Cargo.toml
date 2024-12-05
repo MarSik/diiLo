@@ -34,6 +34,9 @@ tui-big-text = "0.7.0"
 tui-input = "0.11.0"
 walkdir = "2"
 
+[build-dependencies]
+chrono = "0.4.38"
+
 [patch.crates-io]
 # Remove once https://github.com/ratatui/ratatui/pull/1541 is released
 ratatui = { git = 'https://github.com/MarSik/ratatui.git', branch = 'fix-0.29-dim' }

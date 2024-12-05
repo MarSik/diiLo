@@ -24,7 +24,13 @@ fn main() -> anyhow::Result<()> {
         default_log_path()?
     };
 
-    println!("diiLo storage manager - (c) MarSik");
+    let about = format!(
+        "diiLo storage manager {} ({}) - (c) MarSik {}",
+        env!("CARGO_PKG_VERSION"),
+        env!("GIT_HASH"),
+        env!("BUILD_YEAR")
+    );
+    println!("{}", about);
     println!("Using: {:?}", store_path);
     println!("Logging into {:?}", log_path);
 
@@ -39,6 +45,7 @@ fn main() -> anyhow::Result<()> {
         .target(env_logger::Target::Pipe(Box::new(log_file)))
         .init();
 
+    info!("{}", about);
     info!("Using: {:?}", store_path);
 
     let store = Store::new(store_path.clone())?;
