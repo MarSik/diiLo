@@ -269,7 +269,7 @@ pub struct CountCacheSumResult {
 
 impl CountCacheSumResult {
     pub fn count(&self) -> isize {
-        (self.added as isize).saturating_add_unsigned(self.removed)
+        (self.added as isize).saturating_sub_unsigned(self.removed)
     }
 }
 
