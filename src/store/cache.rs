@@ -206,7 +206,7 @@ impl CountCache {
         key.deref().clone()
     }
 
-    pub fn by_location(&self, location_id: &str) -> Vec<CountCacheEntry> {
+    pub fn by_location(&self, location_id: &LocationId) -> Vec<CountCacheEntry> {
         let mut content = Vec::new();
         if let Some(c) = self.by_location.get(location_id) {
             for v in c {
@@ -219,7 +219,7 @@ impl CountCache {
         content
     }
 
-    pub fn by_part(&self, part_id: &str) -> Vec<CountCacheEntry> {
+    pub fn by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
         let mut content = Vec::new();
         if let Some(c) = self.by_part.get(part_id) {
             for v in c {

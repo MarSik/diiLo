@@ -819,7 +819,7 @@ impl Store {
         self.count_cache.by_location(location_id)
     }
 
-    pub fn count_by_source(&self, source_id: &str) -> Vec<CountCacheEntry> {
+    pub fn count_by_source(&self, source_id: &SourceId) -> Vec<CountCacheEntry> {
         self.source_cache.by_location(source_id)
     }
 
@@ -873,11 +873,14 @@ impl Store {
         self.source_cache.get_count(part_id, source_id)
     }
 
-    pub(crate) fn count_by_project(&self, p_id: &str) -> Vec<CountCacheEntry> {
-        self.project_cache.by_location(p_id)
+    pub(crate) fn count_by_project(&self, project_id: &LocationId) -> Vec<CountCacheEntry> {
+        self.project_cache.by_location(project_id)
     }
 
-    pub(crate) fn parts_by_project(&self, project_id: &str) -> Vec<(&Part, CountCacheEntry)> {
+    pub(crate) fn parts_by_project(
+        &self,
+        project_id: &LocationId,
+    ) -> Vec<(&Part, CountCacheEntry)> {
         let mut out = Vec::new();
 
         for en in self.count_by_project(project_id) {
@@ -899,12 +902,12 @@ impl Store {
             .show_empty(part_id, project_id, show_empty)
     }
 
-    pub(crate) fn get_projects_by_part(&self, project_id: &str) -> Vec<CountCacheEntry> {
-        self.project_cache.by_location(project_id)
+    pub(crate) fn get_projects_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
+        self.project_cache.by_part(part_id)
     }
 
-    pub(crate) fn get_sources_by_part(&self, source_id: &str) -> Vec<CountCacheEntry> {
-        self.source_cache.by_location(source_id)
+    pub(crate) fn get_sources_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
+        self.source_cache.by_part(part_id)
     }
 
     pub(crate) fn remove(&mut self, part_id: &str) -> Result<(), AppError> {
