@@ -128,7 +128,7 @@ impl Widget for &App {
                 .get_active_panel_data()
                 .item(self.view.get_active_panel_selection(), &self.store);
             if let Some(item_id) = item.id {
-                if let Some(part) = self.store.part_by_id(&item_id) {
+                if let Some(part) = self.store.part_by_id(item_id.part_type()) {
                     let mut content: Vec<Line> = vec![];
                     content.push(format!("id: {}", part.id).into());
                     content.push(format!("name: {}", part.metadata.name).into());

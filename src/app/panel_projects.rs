@@ -35,14 +35,16 @@ impl PanelProjectSelection {
             })
             .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
             .map(|(p_id, p)| {
-                let counts = store.count_by_project(p_id);
-                let count = counts.sum();
-                let count = count.count();
+                let counts = store.count_by_project_type(p_id);
+                let sum = counts.sum();
+                let sum_count = sum.count();
+                // TODO How to list projects based on types with serial numbers?
                 PanelItem::new(
                     &p.metadata.name,
                     &p.metadata.summary,
-                    &count.to_string(),
-                    Some(p_id),
+                    &sum_count.to_string(),
+                    Some(&p_id.into()),
+                    None,
                 )
             })
             .collect()
@@ -181,7 +183,13 @@ impl PanelProjectPartsSelection {
                     count.count().to_string()
                 };
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(count.part()),
+                    Some(&self.project_id),
+                )
             })
             .collect()
     }
@@ -240,6 +248,9 @@ impl PanelData for PanelProjectPartsSelection {
         self.load_cache(store);
         if let Some(part_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             ad = ad.add_part(part_id);
+        }
+        if let Some(project_id) = self.cached.item_parent_id(idx, || self.load_cache(store)) {
+            ad = ad.add_project(project_id);
         }
 
         Some(ad)

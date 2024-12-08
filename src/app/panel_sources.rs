@@ -1,4 +1,4 @@
-use crate::store::{cache::CountCacheSum, filter::Query, LocationId, SourceId, Store};
+use crate::store::{cache::CountCacheSum, filter::Query, SourceId, Store};
 
 use super::{
     caching_panel_data::{self, CachingPanelData, ParentPanel},
@@ -46,7 +46,13 @@ impl PanelSourceSelection {
                     count.to_string()
                 };
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(p_id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(&p_id.into()),
+                    None,
+                )
             })
             .collect()
     }
@@ -69,7 +75,10 @@ impl PanelData for PanelSourceSelection {
         }
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
-            EnterAction(Box::new(PanelSourcesMenu::new(self, idx, &item_id)), 0)
+            EnterAction(
+                Box::new(PanelSourcesMenu::new(self, idx, item_id.part_type())),
+                0,
+            )
         } else {
             EnterAction(self, idx)
         }
@@ -90,7 +99,9 @@ impl PanelData for PanelSourceSelection {
     fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor> {
         self.cached
             .item_id(idx, || self.load_cache(store))
-            .map(|source_id| ActionDescriptor::new().add_source(source_id))
+            .map(|source_id| {
+                ActionDescriptor::new().add_source(SourceId::clone(source_id.part_type()))
+            })
     }
 
     fn panel_title(&self, _store: &Store) -> String {
@@ -159,9 +170,9 @@ impl PanelSourcesMenu {
         Self {
             parent,
             data: vec![
-                PanelItem::new("<Back>", "", "", None),
-                PanelItem::new("Parts", "show parts delivered from source", "", None),
-                PanelItem::new("Orders", "show orders", "", None),
+                PanelItem::new("<Back>", "", "", None, None),
+                PanelItem::new("Parts", "show parts delivered from source", "", None, None),
+                PanelItem::new("Orders", "show orders", "", None, None),
             ],
             parent_idx,
             source_id: source_id.clone(),
@@ -263,7 +274,7 @@ impl PanelData for PanelSourcesMenu {
 #[derive(Debug)]
 pub struct PanelPartFromSourcesSelection {
     parent: ParentPanel,
-    source_id: LocationId,
+    source_id: SourceId,
     cached: CachingPanelData,
     query: Option<Query>,
 }
@@ -272,7 +283,7 @@ impl PanelPartFromSourcesSelection {
     pub fn new(
         parent: Box<dyn PanelData>,
         parent_idx: usize,
-        source_id: LocationId,
+        source_id: SourceId,
         query: Option<Query>,
     ) -> Self {
         Self {
@@ -299,7 +310,13 @@ impl PanelPartFromSourcesSelection {
                     count.count().to_string()
                 };
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(&p.id.as_ref().into()),
+                    Some(&self.source_id.as_ref().into()),
+                )
             })
             .collect()
     }
@@ -307,7 +324,7 @@ impl PanelPartFromSourcesSelection {
 
 impl PanelData for PanelPartFromSourcesSelection {
     fn title(&self, store: &Store) -> String {
-        let loc = self.cached.title(store, &self.source_id);
+        let loc = self.cached.title(store, &self.source_id.as_ref().into());
         match &self.query {
             Some(q) => format!("Parts from {}: query: {}", loc, q.current_query()).to_string(),
             None => format!("Parts from {}", loc).to_string(),
@@ -406,7 +423,7 @@ impl PanelData for PanelPartFromSourcesSelection {
 #[derive(Debug)]
 pub struct PanelOrderedFromSourcesSelection {
     parent: ParentPanel,
-    source_id: LocationId,
+    source_id: SourceId,
     cached: CachingPanelData,
     query: Option<Query>,
 }
@@ -415,7 +432,7 @@ impl PanelOrderedFromSourcesSelection {
     pub fn new(
         parent: Box<dyn PanelData>,
         parent_idx: usize,
-        source_id: LocationId,
+        source_id: SourceId,
         query: Option<Query>,
     ) -> Self {
         Self {
@@ -435,7 +452,13 @@ impl PanelOrderedFromSourcesSelection {
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(&p.id.as_ref().into()),
+                    Some(&self.source_id.as_ref().into()),
+                )
             })
             .collect()
     }
@@ -443,7 +466,7 @@ impl PanelOrderedFromSourcesSelection {
 
 impl PanelData for PanelOrderedFromSourcesSelection {
     fn title(&self, store: &Store) -> String {
-        let loc = self.cached.title(store, &self.source_id);
+        let loc = self.cached.title(store, &self.source_id.as_ref().into());
         match &self.query {
             Some(q) => {
                 format!("Parts ordered from {}: query: {}", loc, q.current_query()).to_string()

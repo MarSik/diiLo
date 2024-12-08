@@ -31,14 +31,15 @@ impl PanelPartSelection {
             .filter(|p| p.1.metadata.types.contains(&crate::store::ObjectType::Part))
             .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
             .map(|(p_id, p)| {
-                let counts = store.count_by_part(p_id);
+                let counts = store.count_by_part_type(p_id);
                 let count = counts.sum();
                 let count = count.added as isize - count.removed as isize;
                 PanelItem::new(
                     &p.metadata.name,
                     &p.metadata.summary,
                     &count.to_string(),
-                    Some(p_id),
+                    Some(&p_id.into()),
+                    None,
                 )
             })
             .collect()
@@ -177,7 +178,13 @@ impl PanelPartLocationsSelection {
                     count.count().to_string()
                 };
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(count.part()),
+                    Some(&self.part_id),
+                )
             })
             .collect()
     }
@@ -233,6 +240,9 @@ impl PanelData for PanelPartLocationsSelection {
         self.load_cache(store);
         if let Some(location_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             ad = ad.add_location(location_id);
+        }
+        if let Some(part_id) = self.cached.item_parent_id(idx, || self.load_cache(store)) {
+            ad = ad.add_part(part_id);
         }
 
         Some(ad)

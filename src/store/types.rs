@@ -98,9 +98,9 @@ pub struct PartMetadata {
     pub unit: CountUnit,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default, Debug, Clone)]
 pub struct Part {
-    pub id: PartId,
+    pub id: PartTypeId,
     pub filename: Option<PathBuf>,
     pub metadata: PartMetadata,
     pub content: String,
@@ -195,8 +195,67 @@ pub(crate) struct LedgerEntryDto {
     pub(super) cmd_set: bool,
 }
 
-pub type PartId = Rc<str>;
+pub type PartTypeId = Rc<str>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PartId {
+    Simple(PartTypeId),
+    Piece(PartTypeId, usize), // .1 is piece counter and must be unique at least per .0 type
+    Unique(PartTypeId, Rc<str>), // .1 is a serial number
+}
+
+impl PartId {
+    pub fn part_type(&self) -> &PartTypeId {
+        match self {
+            PartId::Simple(rc) => rc,
+            PartId::Piece(rc, _) => rc,
+            PartId::Unique(rc, _) => rc,
+        }
+    }
+}
+
+impl From<&str> for PartId {
+    fn from(value: &str) -> Self {
+        PartId::Simple(value.into())
+    }
+}
+
+impl From<&String> for PartId {
+    fn from(value: &String) -> Self {
+        PartId::Simple(value.as_str().into())
+    }
+}
+
+impl From<String> for PartId {
+    fn from(value: String) -> Self {
+        PartId::Simple(value.as_str().into())
+    }
+}
+
+impl From<PartTypeId> for PartId {
+    fn from(value: PartTypeId) -> Self {
+        PartId::Simple(PartTypeId::clone(&value))
+    }
+}
+
+impl From<&PartTypeId> for PartId {
+    fn from(value: &PartTypeId) -> Self {
+        PartId::Simple(PartTypeId::clone(value))
+    }
+}
+
+impl std::fmt::Display for PartId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PartId::Simple(rc) => rc.fmt(f),
+            PartId::Piece(rc, _) => rc.fmt(f),
+            PartId::Unique(rc, serial) => f.write_fmt(format_args!("{} [{}]", rc, serial)),
+        }
+    }
+}
+
 pub type LocationId = PartId;
+pub type ProjectId = PartId;
 pub type SourceId = Rc<str>;
 
 #[derive(Debug)]

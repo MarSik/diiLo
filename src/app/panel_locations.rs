@@ -35,14 +35,15 @@ impl PanelLocationSelection {
             })
             .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
             .map(|(p_id, p)| {
-                let counts = store.count_by_location(p_id);
+                let counts = store.count_by_location_type(p_id);
                 let count = counts.sum();
                 let count = count.count();
                 PanelItem::new(
                     &p.metadata.name,
                     &p.metadata.summary,
                     &count.to_string(),
-                    Some(p_id),
+                    Some(&p_id.into()),
+                    None,
                 )
             })
             .collect()
@@ -181,7 +182,13 @@ impl PanelLocationPartsSelection {
                     count.count().to_string()
                 };
 
-                PanelItem::new(&p.metadata.name, &p.metadata.summary, &data, Some(&p.id))
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    &data,
+                    Some(count.part()),
+                    Some(&self.location_id),
+                )
             })
             .collect()
     }
@@ -240,6 +247,9 @@ impl PanelData for PanelLocationPartsSelection {
         self.load_cache(store);
         if let Some(part_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             ad = ad.add_part(part_id);
+        }
+        if let Some(location_id) = self.cached.item_parent_id(idx, || self.load_cache(store)) {
+            ad = ad.add_location(location_id);
         }
 
         Some(ad)

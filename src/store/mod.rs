@@ -25,7 +25,8 @@ use crate::app::errs::AppError;
 
 use types::LedgerEntryDto;
 pub use types::{
-    LedgerEntry, LedgerEvent, LocationId, ObjectType, Part, PartId, PartMetadata, SourceId,
+    LedgerEntry, LedgerEvent, LocationId, ObjectType, Part, PartId, PartMetadata, PartTypeId,
+    ProjectId, SourceId,
 };
 
 pub struct Store {
@@ -51,7 +52,7 @@ pub struct Store {
     ledger_name: String,
 
     // Cached values
-    parts: HashMap<PartId, Part>,
+    parts: HashMap<PartTypeId, Part>,
     labels: HashMap<String, HashSet<String>>,
 
     // internal helper instances
@@ -289,8 +290,8 @@ impl Store {
                 };
 
                 self.count_cache.set_count(CountCacheEntry::new(
-                    Rc::clone(&e.part),
-                    Rc::clone(location),
+                    PartId::clone(&e.part),
+                    LocationId::clone(location),
                     new_added,
                     new_removed,
                     count.required(),
@@ -306,19 +307,24 @@ impl Store {
             }
             LedgerEvent::OrderFrom(source) => {
                 self.source_cache
-                    .update_count(&e.part, source, NONE, NONE, ADD(e.count));
+                    .update_count(&e.part, &source.into(), NONE, NONE, ADD(e.count));
             }
             LedgerEvent::CancelOrderFrom(source) => {
-                self.source_cache
-                    .update_count(&e.part, source, NONE, NONE, REMOVE(e.count));
+                self.source_cache.update_count(
+                    &e.part,
+                    &source.into(),
+                    NONE,
+                    NONE,
+                    REMOVE(e.count),
+                );
             }
             LedgerEvent::DeliverFrom(source) => {
                 self.source_cache
-                    .update_count(&e.part, source, ADD(e.count), NONE, NONE);
+                    .update_count(&e.part, &source.into(), ADD(e.count), NONE, NONE);
             }
             LedgerEvent::ReturnTo(source) => {
                 self.source_cache
-                    .update_count(&e.part, source, NONE, ADD(e.count), NONE);
+                    .update_count(&e.part, &source.into(), NONE, ADD(e.count), NONE);
             }
             LedgerEvent::UnsolderFrom(project) => {
                 self.project_cache
@@ -336,7 +342,7 @@ impl Store {
     }
 
     // Return all objects, includes all types (parts, locations, sources, etc.)
-    pub fn all_objects(&self) -> &HashMap<PartId, Part> {
+    pub fn all_objects(&self) -> &HashMap<PartTypeId, Part> {
         &self.parts
     }
 
@@ -357,7 +363,7 @@ impl Store {
             .collect()
     }
 
-    pub fn part_by_id(&self, part_id: &PartId) -> Option<&Part> {
+    pub fn part_by_id(&self, part_id: &PartTypeId) -> Option<&Part> {
         self.parts.get(part_id)
     }
 
@@ -365,7 +371,7 @@ impl Store {
         let mut out = Vec::new();
 
         for en in self.count_by_location(location_id) {
-            if let Some(p) = self.parts.get(en.part()) {
+            if let Some(p) = self.parts.get(en.part().part_type()) {
                 out.push((p, en));
             }
         }
@@ -373,11 +379,11 @@ impl Store {
         out
     }
 
-    pub fn parts_by_source(&self, source_id: &LocationId) -> Vec<(&Part, CountCacheEntry)> {
+    pub fn parts_by_source(&self, source_id: &SourceId) -> Vec<(&Part, CountCacheEntry)> {
         let mut out = Vec::new();
 
         for en in self.count_by_source(source_id) {
-            if let Some(p) = self.parts.get(en.part()) {
+            if let Some(p) = self.parts.get(en.part().part_type()) {
                 out.push((p, en));
             }
         }
@@ -389,7 +395,7 @@ impl Store {
         let mut out = Vec::new();
 
         for en in self.count_by_part(part_id) {
-            if let Some(p) = self.parts.get(en.location()) {
+            if let Some(p) = self.parts.get(en.location().part_type()) {
                 out.push((p, en));
             }
         }
@@ -414,12 +420,20 @@ impl Store {
         self.count_cache.by_part(part_id)
     }
 
+    pub fn count_by_part_type(&self, part_type_id: &PartTypeId) -> Vec<CountCacheEntry> {
+        self.count_cache.by_part_type(part_type_id)
+    }
+
     pub fn count_by_location(&self, location_id: &LocationId) -> Vec<CountCacheEntry> {
         self.count_cache.by_location(location_id)
     }
 
+    pub fn count_by_location_type(&self, location_id: &PartTypeId) -> Vec<CountCacheEntry> {
+        self.count_cache.by_location_type(location_id)
+    }
+
     pub fn count_by_source(&self, source_id: &SourceId) -> Vec<CountCacheEntry> {
-        self.source_cache.by_location(source_id)
+        self.source_cache.by_location(&source_id.into())
     }
 
     pub fn add_label_key(&mut self, label_key: &str) {
@@ -469,11 +483,15 @@ impl Store {
     }
 
     pub(crate) fn get_by_source(&self, part_id: &PartId, source_id: &SourceId) -> CountCacheEntry {
-        self.source_cache.get_count(part_id, source_id)
+        self.source_cache.get_count(part_id, &source_id.into())
     }
 
     pub(crate) fn count_by_project(&self, project_id: &LocationId) -> Vec<CountCacheEntry> {
         self.project_cache.by_location(project_id)
+    }
+
+    pub(crate) fn count_by_project_type(&self, project_id: &PartTypeId) -> Vec<CountCacheEntry> {
+        self.project_cache.by_location_type(project_id)
     }
 
     pub(crate) fn parts_by_project(
@@ -483,7 +501,7 @@ impl Store {
         let mut out = Vec::new();
 
         for en in self.count_by_project(project_id) {
-            if let Some(p) = self.parts.get(en.part()) {
+            if let Some(p) = self.parts.get(en.part().part_type()) {
                 out.push((p, en));
             }
         }
@@ -509,11 +527,11 @@ impl Store {
         self.source_cache.by_part(part_id)
     }
 
-    pub(crate) fn remove(&mut self, part_id: &PartId) -> Result<(), AppError> {
+    pub(crate) fn remove(&mut self, part_type_id: &PartTypeId) -> Result<(), AppError> {
         let part = self
             .parts
-            .get(part_id)
-            .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
+            .get(part_type_id)
+            .ok_or(AppError::NoSuchObject(part_type_id.to_string()))?;
 
         // Delete file
         part.filename
@@ -521,12 +539,12 @@ impl Store {
             .map(fs::remove_file)
             .unwrap_or(Ok(()))
             .map_err(AppError::IoError)?;
-        self.parts.remove(part_id);
+        self.parts.remove(part_type_id);
 
         // Clear caches
-        self.count_cache.remove(part_id);
-        self.source_cache.remove(part_id);
-        self.project_cache.remove(part_id);
+        self.count_cache.remove(part_type_id);
+        self.source_cache.remove(part_type_id);
+        self.project_cache.remove(part_type_id);
 
         Ok(())
     }

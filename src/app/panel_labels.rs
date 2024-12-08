@@ -37,6 +37,7 @@ impl PanelLabelSelection {
                     "",
                     &count.to_string(),
                     Some(&label_key.as_str().into()),
+                    None,
                 )
             })
             .collect()
@@ -182,6 +183,7 @@ impl PanelLabelValueSelection {
                     "",
                     &count.to_string(),
                     Some(&label_value.as_str().into()),
+                    Some(&self.key.as_str().into()),
                 )
             })
             .collect()
@@ -207,7 +209,11 @@ impl PanelData for PanelLabelValueSelection {
         if let Some(item_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             EnterAction(
                 Box::new(PanelPartByLabelSelection::new(
-                    self, idx, &label_key, &item_id, None,
+                    self,
+                    idx,
+                    &label_key,
+                    item_id.part_type(),
+                    None,
                 )),
                 0,
             )
@@ -232,7 +238,7 @@ impl PanelData for PanelLabelValueSelection {
         self.load_cache(store);
         let label_val = self.cached.item_id(idx, || self.load_cache(store));
         label_val
-            .map(|label_val| ActionDescriptor::new().add_label(&self.key, &label_val))
+            .map(|label_val| ActionDescriptor::new().add_label(&self.key, label_val.part_type()))
             .or_else(|| Some(ActionDescriptor::new().add_label_key(&self.key)))
     }
 
@@ -321,12 +327,13 @@ impl PanelPartByLabelSelection {
             .iter()
             .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p)))
             .map(|p| {
-                let c = store.count_by_part(&p.id).sum();
+                let c = store.count_by_part_type(&p.id).sum();
                 PanelItem::new(
                     &p.metadata.name,
                     &p.metadata.summary,
                     &c.count().to_string(),
-                    Some(&p.id),
+                    Some(&p.id.as_ref().into()),
+                    None,
                 )
             })
             .collect()

@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{LocationId, PartId};
+use super::{LocationId, PartId, PartTypeId};
 
 #[derive(Debug)]
 pub enum CountChange {
@@ -120,7 +120,13 @@ impl CountCache {
         removed: CountChange,
         required: CountChange,
     ) -> CountCacheEntry {
-        let mut key = CountCacheEntry::new(Rc::clone(part_id), Rc::clone(location_id), 0, 0, 0);
+        let mut key = CountCacheEntry::new(
+            PartId::clone(part_id),
+            LocationId::clone(location_id),
+            0,
+            0,
+            0,
+        );
         if let Some(v) = self.all.get(&key) {
             key.added = v.added;
             key.removed = v.removed;
@@ -153,7 +159,13 @@ impl CountCache {
     }
 
     pub fn get_count(&self, part_id: &PartId, location_id: &LocationId) -> CountCacheEntry {
-        let mut key = CountCacheEntry::new(Rc::clone(part_id), Rc::clone(location_id), 0, 0, 0);
+        let mut key = CountCacheEntry::new(
+            PartId::clone(part_id),
+            LocationId::clone(location_id),
+            0,
+            0,
+            0,
+        );
         if let Some(v) = self.all.get(&key) {
             key.added = v.added;
             key.removed = v.removed;
@@ -170,7 +182,13 @@ impl CountCache {
         location_id: &LocationId,
         show_empty: bool,
     ) -> CountCacheEntry {
-        let mut key = CountCacheEntry::new(Rc::clone(part_id), Rc::clone(location_id), 0, 0, 0);
+        let mut key = CountCacheEntry::new(
+            PartId::clone(part_id),
+            LocationId::clone(location_id),
+            0,
+            0,
+            0,
+        );
         if let Some(v) = self.all.get(&key) {
             key.added = v.added;
             key.removed = v.removed;
@@ -186,7 +204,7 @@ impl CountCache {
 
         if !self.by_location.contains_key(&key.location_id) {
             self.by_location
-                .insert(Rc::clone(&key.location_id), HashSet::new());
+                .insert(LocationId::clone(&key.location_id), HashSet::new());
         }
         self.by_location
             .get_mut(&key.location_id)
@@ -194,7 +212,8 @@ impl CountCache {
             .replace(Rc::clone(&key));
 
         if !self.by_part.contains_key(&key.part_id) {
-            self.by_part.insert(Rc::clone(&key.part_id), HashSet::new());
+            self.by_part
+                .insert(PartId::clone(&key.part_id), HashSet::new());
         }
         self.by_part
             .get_mut(&key.part_id)
@@ -238,20 +257,58 @@ impl CountCache {
         self.by_part.clear();
     }
 
-    pub(crate) fn remove(&mut self, object_id: &str) {
-        if let Some(cs) = self.by_location.get(object_id) {
-            for e in cs {
+    pub(crate) fn remove(&mut self, object_id: &PartTypeId) {
+        self.by_location.retain(|p_id, cs| {
+            if p_id.part_type() != object_id {
+                return true;
+            }
+
+            for e in cs.iter() {
                 self.by_part.get_mut(&e.part_id).unwrap().remove(e);
                 self.all.remove(e);
             }
-        }
 
-        if let Some(cs) = self.by_part.get(object_id) {
-            for e in cs {
+            false
+        });
+
+        self.by_part.retain(|p_id, cs| {
+            if p_id.part_type() != object_id {
+                return true;
+            }
+
+            for e in cs.iter() {
                 self.by_location.get_mut(&e.location_id).unwrap().remove(e);
                 self.all.remove(e);
             }
-        }
+
+            false
+        });
+    }
+
+    pub(crate) fn by_part_type(&self, part_type_id: &PartTypeId) -> Vec<CountCacheEntry> {
+        self.by_part.iter().fold(Vec::new(), |mut acc, (p_id, cs)| {
+            if p_id.part_type() == part_type_id {
+                acc.extend(
+                    cs.iter()
+                        .map(|c: &Rc<CountCacheEntry>| CountCacheEntry::clone(c)),
+                )
+            }
+            acc
+        })
+    }
+
+    pub(crate) fn by_location_type(&self, location_type_id: &PartTypeId) -> Vec<CountCacheEntry> {
+        self.by_location
+            .iter()
+            .fold(Vec::new(), |mut acc, (p_id, cs)| {
+                if p_id.part_type() == location_type_id {
+                    acc.extend(
+                        cs.iter()
+                            .map(|c: &Rc<CountCacheEntry>| CountCacheEntry::clone(c)),
+                    )
+                }
+                acc
+            })
     }
 }
 

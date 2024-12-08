@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 Ok(AppEvents::Quit) => break,
                 Ok(AppEvents::Edit(part_id)) => {
-                    match open_in_editor(&mut app, part_id) {
+                    match open_in_editor(&mut app, part_id.part_type()) {
                         Ok(name) => {
                             app.reload();
                             app.select_item(&name);
@@ -127,8 +127,8 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn open_in_editor(app: &mut App, part_id: std::rc::Rc<str>) -> anyhow::Result<String> {
-    let part = app.get_part(&part_id);
+fn open_in_editor(app: &mut App, part_id: &std::rc::Rc<str>) -> anyhow::Result<String> {
+    let part = app.get_part(part_id);
     if part.is_none() {
         return Err(anyhow::format_err!("No such part?!"));
     }

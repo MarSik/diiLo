@@ -8,8 +8,8 @@ use tui_input::Input;
 use view::{ActivePanel, CreateMode, DialogState, View};
 
 use crate::store::{
-    cache::CountCacheSum, filter::Query, LedgerEntry, LedgerEvent, Part, PartId, PartMetadata,
-    Store,
+    cache::CountCacheSum, filter::Query, LedgerEntry, LedgerEvent, LocationId, Part, PartId,
+    PartMetadata, PartTypeId, ProjectId, SourceId, Store,
 };
 
 mod caching_panel_data;
@@ -504,19 +504,18 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
-        let (destination, ev) = if let Some(destination) = destination
-            .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))
-        {
-            (Rc::clone(&destination), LedgerEvent::RequireIn(destination))
-        } else if let Some(project_id) = destination
-            .as_ref()
-            .and_then(|d| d.project().map(Rc::clone))
+        let (destination, ev) = if let Some(destination) =
+            destination.as_ref().and_then(|d| d.location().cloned())
         {
             (
-                Rc::clone(&project_id),
+                LocationId::clone(&destination),
+                LedgerEvent::RequireIn(destination),
+            )
+        } else if let Some(project_id) = destination.as_ref().and_then(|d| d.project().cloned()) {
+            (
+                ProjectId::clone(&project_id),
                 LedgerEvent::RequireInProject(project_id),
             )
         } else {
@@ -549,11 +548,11 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.source().map(Rc::clone))
+            .and_then(|d| d.source().cloned())
             .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
@@ -581,15 +580,15 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let source = source
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
@@ -626,15 +625,15 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let source = source
             .as_ref()
-            .and_then(|d| d.source().map(Rc::clone))
+            .and_then(|d| d.source().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
@@ -671,15 +670,15 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let source = source
             .as_ref()
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let destination = destination
             .as_ref()
-            .and_then(|d| d.project().map(Rc::clone))
+            .and_then(|d| d.project().cloned())
             .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
@@ -716,13 +715,13 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = source
             .as_ref()
-            .and_then(|s| s.part().map(Rc::clone))
+            .and_then(|s| s.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let source = source
-            .and_then(|d| d.project().map(Rc::clone))
+            .and_then(|d| d.project().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let destination = destination
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
 
         self.update_status(&format!(
@@ -758,7 +757,7 @@ impl App {
         part_id: &PartId,
         label: (String, String),
     ) -> anyhow::Result<AppEvents> {
-        if let Some(part) = self.store.part_by_id(part_id) {
+        if let Some(part) = self.store.part_by_id(part_id.part_type()) {
             let mut new_part = part.clone();
             new_part
                 .metadata
@@ -785,7 +784,7 @@ impl App {
     ) -> anyhow::Result<AppEvents> {
         let part = self
             .store
-            .part_by_id(part_id)
+            .part_by_id(part_id.part_type())
             .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
         let mut new_part = part.clone();
         let labels = new_part.metadata.labels.remove(&label.0);
@@ -838,13 +837,14 @@ impl App {
     fn panel_item_from_id(&self, p_id: &PartId) -> Result<PanelItem, AppError> {
         let obj = self
             .store
-            .part_by_id(p_id)
+            .part_by_id(p_id.part_type())
             .ok_or(AppError::NoSuchObject(p_id.to_string()))?;
         Ok(PanelItem {
             name: obj.metadata.name.clone(),
             summary: obj.metadata.summary.clone(),
             data: String::with_capacity(0),
-            id: Some(Rc::clone(p_id)),
+            id: Some(PartId::clone(p_id)),
+            parent_id: None,
         })
     }
 
@@ -861,7 +861,7 @@ impl App {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-                    .and_then(|ad| ad.location().map(Rc::clone))
+                    .and_then(|ad| ad.location().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
                     self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
@@ -902,10 +902,13 @@ impl App {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-                    .and_then(|ad| ad.source().map(Rc::clone))
+                    .and_then(|ad| ad.source().map(SourceId::clone))
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
-                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst.into())?),
+                    );
                 } else {
                     return Err(dst.unwrap_err());
                 }
@@ -916,7 +919,7 @@ impl App {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-                    .and_then(|ad| ad.location().map(Rc::clone))
+                    .and_then(|ad| ad.location().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
                     self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
@@ -928,7 +931,7 @@ impl App {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-                    .and_then(|ad| ad.project().map(Rc::clone))
+                    .and_then(|ad| ad.project().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
                     self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
@@ -943,7 +946,10 @@ impl App {
                     .and_then(|ad| ad.source().map(Rc::clone))
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
-                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst.into())?),
+                    );
                 } else {
                     return Err(dst.unwrap_err());
                 }
@@ -981,6 +987,7 @@ impl App {
             summary: String::with_capacity(0),
             data: String::with_capacity(0),
             id: None,
+            parent_id: None,
         };
         self.view.show_action_dialog(
             action,
@@ -1022,7 +1029,7 @@ impl App {
             self.view.show_action_dialog(
                 action,
                 part_item,
-                Some(self.panel_item_from_id(source_id)?),
+                Some(self.panel_item_from_id(&source_id.into())?),
                 count,
             );
         } else {
@@ -1112,7 +1119,7 @@ impl App {
                 .all_label_keys()
                 .iter()
                 .filter(|(k, _)| k.to_lowercase().starts_with(&query))
-                .map(|(k, _)| PanelItem::new(k, "", "", Some(&Rc::from(k.as_str()))))
+                .map(|(k, _)| PanelItem::new(k, "", "", Some(&k.into()), None))
                 .collect();
             return;
         }
@@ -1128,7 +1135,7 @@ impl App {
                         .all_label_values(label_key)
                         .iter()
                         .filter(|(v, _)| v.to_lowercase().starts_with(&query))
-                        .map(|(v, _)| PanelItem::new(v, "", "", Some(&Rc::from(v.as_str()))))
+                        .map(|(v, _)| PanelItem::new(v, "", "", Some(&v.into()), None))
                         .collect();
                     return;
                 }
@@ -1168,7 +1175,15 @@ impl App {
                 | PanelContent::Labels => false,
             })
             .filter(|(_, p)| p.metadata.name.to_lowercase().starts_with(&query))
-            .map(|(_, p)| PanelItem::new(&p.metadata.name, &p.metadata.summary, "", Some(&p.id)))
+            .map(|(_, p)| {
+                PanelItem::new(
+                    &p.metadata.name,
+                    &p.metadata.summary,
+                    "",
+                    Some(&p.id.as_ref().into()),
+                    None,
+                )
+            })
             .take(20)
             .collect();
     }
@@ -1194,7 +1209,7 @@ impl App {
 
         // This was an edit of existing part, just update it and return
         if let Some(part_id) = self.view.create_save_into.clone() {
-            if let Some(part) = self.store.part_by_id(&part_id) {
+            if let Some(part) = self.store.part_by_id(part_id.part_type()) {
                 let mut new_part = part.clone();
                 new_part.metadata.name = self.view.create_name.value().to_string();
                 new_part.metadata.summary = self.view.create_summary.value().to_string();
@@ -1236,7 +1251,7 @@ impl App {
             self.update_status(&format!("Part {} was created.", part_id));
             Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ))
         }
@@ -1256,7 +1271,7 @@ impl App {
             self.update_status(&format!("Location {} was created.", part_id));
             Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ))
         }
@@ -1290,7 +1305,7 @@ impl App {
                 self.store.show_empty_in_location(part_id, location, true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
-                        .part_by_id(part_id)
+                        .part_by_id(part_id.part_type())
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
                 ));
             }
@@ -1319,7 +1334,7 @@ impl App {
 
             return Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
@@ -1353,7 +1368,7 @@ impl App {
                     .show_empty_in_location(part_id, location_id, true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
-                        .part_by_id(location_id)
+                        .part_by_id(location_id.part_type())
                         .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
                 ));
             }
@@ -1386,7 +1401,7 @@ impl App {
 
             return Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&location_id)
+                    .part_by_id(location_id.part_type())
                     .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
@@ -1402,10 +1417,11 @@ impl App {
         if let CreateMode::Hint(hint) = self.view.create_idx {
             if let Some(part_id) = &self.view.create_hints[hint].id {
                 let source = action_desc.source().ok_or(AppError::BadOperationContext)?;
-                self.store.show_empty_in_source(part_id, source, true);
+                self.store
+                    .show_empty_in_source(part_id, &source.into(), true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
-                        .part_by_id(part_id)
+                        .part_by_id(part_id.part_type())
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
                 ));
             }
@@ -1416,12 +1432,13 @@ impl App {
             })?;
 
             if let Some(source) = action_desc.source() {
-                self.store.show_empty_in_source(&part_id, source, true);
+                self.store
+                    .show_empty_in_source(&part_id, &source.into(), true);
             }
 
             return Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
@@ -1454,7 +1471,7 @@ impl App {
                 self.store.show_empty_in_project(part_id, project_id, true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
-                        .part_by_id(part_id)
+                        .part_by_id(part_id.part_type())
                         .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
                 ));
             }
@@ -1483,7 +1500,7 @@ impl App {
 
             return Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ));
         }
@@ -1528,7 +1545,7 @@ impl App {
 
             let name = self
                 .store
-                .part_by_id(&part_id)
+                .part_by_id(part_id.part_type())
                 .map(|p| p.metadata.name.clone())
                 .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
 
@@ -1550,7 +1567,7 @@ impl App {
             self.update_status(&format!("Source {} was created.", part_id));
             Ok(AppEvents::ReloadDataSelect(
                 self.store
-                    .part_by_id(&part_id)
+                    .part_by_id(part_id.part_type())
                     .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
             ))
         }
@@ -1571,7 +1588,7 @@ impl App {
             self.update_status(&format!("Project {} was created.", part_id));
             let name = self
                 .store
-                .part_by_id(&part_id)
+                .part_by_id(part_id.part_type())
                 .map_or(part_id.to_string(), |p| p.metadata.name.clone());
             Ok(AppEvents::ReloadDataSelect(name))
         }
@@ -1600,7 +1617,7 @@ impl App {
         }
     }
 
-    fn make_new_id(&self, name: &str) -> PartId {
+    fn make_new_type_id(&self, name: &str) -> PartTypeId {
         let mut candidate = self.store.name_to_id(name).into();
         loop {
             if let Some(_part) = self.store.part_by_id(&candidate) {
@@ -1626,7 +1643,7 @@ impl App {
     fn create_object_from_dialog_data(&mut self, editor: fn(&mut Part)) -> anyhow::Result<PartId> {
         let name = self.view.create_name.value().trim().to_string();
         let mut part = Part {
-            id: self.make_new_id(&name),
+            id: self.make_new_type_id(&name),
             filename: None,
             metadata: PartMetadata {
                 id: None,
@@ -1645,7 +1662,7 @@ impl App {
 
         self.store.insert_part_to_cache(part);
 
-        Ok(part_id)
+        Ok(part_id.into())
     }
 
     fn prepare_delete(&mut self) {
@@ -1738,18 +1755,20 @@ impl App {
         let entry = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: count.required().saturating_sub(count.added()),
-            part: Rc::clone(part_id),
+            part: PartId::clone(part_id),
             ev: LedgerEvent::CancelOrderFrom(Rc::clone(source_id)),
         };
         if entry.count > 0 {
             self.store.record_event(&entry)?;
             self.store.update_count_cache(&entry);
-            self.store.show_empty_in_source(part_id, source_id, true);
+            self.store
+                .show_empty_in_source(part_id, &source_id.into(), true);
             self.update_status(format!("Order of {} cancelled.", part_id).as_str());
             return Ok(AppEvents::ReloadData);
         }
 
-        self.store.show_empty_in_source(part_id, source_id, false);
+        self.store
+            .show_empty_in_source(part_id, &source_id.into(), false);
         Ok(AppEvents::ReloadData)
     }
 
@@ -1817,7 +1836,7 @@ impl App {
         Ok(AppEvents::Edit(part_id))
     }
 
-    pub fn get_part(&self, p_id: &PartId) -> Option<&Part> {
+    pub fn get_part(&self, p_id: &PartTypeId) -> Option<&Part> {
         self.store.part_by_id(p_id)
     }
 
@@ -1843,8 +1862,8 @@ impl App {
             let ev = LedgerEntry {
                 t: Local::now().fixed_offset(),
                 count: self.view.action_count_dialog_count,
-                part: Rc::clone(part_id),
-                ev: LedgerEvent::RequireIn(Rc::clone(location_id)),
+                part: PartId::clone(part_id),
+                ev: LedgerEvent::RequireIn(LocationId::clone(location_id)),
             };
             self.store.update_count_cache(&ev);
             self.store.record_event(&ev)?;
@@ -1852,7 +1871,7 @@ impl App {
             let ev = LedgerEntry {
                 t: Local::now().fixed_offset(),
                 count: self.view.action_count_dialog_count,
-                part: Rc::clone(part_id),
+                part: PartId::clone(part_id),
                 ev: LedgerEvent::OrderFrom(Rc::clone(source_id)),
             };
             self.store.update_count_cache(&ev);
@@ -1861,8 +1880,8 @@ impl App {
             let ev = LedgerEntry {
                 t: Local::now().fixed_offset(),
                 count: self.view.action_count_dialog_count,
-                part: Rc::clone(part_id),
-                ev: LedgerEvent::RequireInProject(Rc::clone(project_id)),
+                part: PartId::clone(part_id),
+                ev: LedgerEvent::RequireInProject(ProjectId::clone(project_id)),
             };
             self.store.update_count_cache(&ev);
             self.store.record_event(&ev)?;
@@ -1881,7 +1900,7 @@ impl App {
             .ok_or(AppError::PartHasNoId)?;
         let item = self
             .store
-            .part_by_id(&item_id)
+            .part_by_id(item_id.part_type())
             .ok_or(AppError::NoSuchObject(item_id.to_string()))?;
         let is_project = item
             .metadata
@@ -1889,7 +1908,7 @@ impl App {
             .contains(&crate::store::ObjectType::Project);
 
         let mut new_item = item.clone();
-        let new_id = self.make_new_id(&item.metadata.name);
+        let new_id = self.make_new_type_id(&item.metadata.name);
         let new_name = [&item.metadata.name, " - clone"].join("");
         new_item.id = Rc::clone(&new_id);
         new_item.metadata.id = Some(new_item.id.to_string());
@@ -1905,8 +1924,8 @@ impl App {
                 let entry = LedgerEntry {
                     t: Local::now().fixed_offset(),
                     count: r.required(),
-                    part: Rc::clone(r.part()),
-                    ev: LedgerEvent::RequireInProject(Rc::clone(&new_id)),
+                    part: PartId::clone(r.part()),
+                    ev: LedgerEvent::RequireInProject(ProjectId::clone(&new_id.as_ref().into())),
                 };
                 self.store.record_event(&entry)?;
                 self.store.update_count_cache(&entry);
@@ -1991,9 +2010,9 @@ impl App {
         action_descriptor: Option<ActionDescriptor>,
     ) -> Result<AppEvents, anyhow::Error> {
         let part_id = action_descriptor
-            .and_then(|d| d.part().map(Rc::clone))
+            .and_then(|d| d.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
-        let counts = self.store.count_by_part(&part_id).sum();
+        let counts = self.store.count_by_part_type(part_id.part_type()).sum();
         if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
             self.update_status("Part cannot be deleted, because it is tracked.");
             return Ok(AppEvents::Nop);
@@ -2011,7 +2030,10 @@ impl App {
             return Ok(AppEvents::Nop);
         }
 
-        let res = self.store.remove(&part_id).map(|_| AppEvents::ReloadData)?;
+        let res = self
+            .store
+            .remove(part_id.part_type())
+            .map(|_| AppEvents::ReloadData)?;
         self.update_status(format!("Part {} was DELETED!", part_id).as_str());
         Ok(res)
     }
@@ -2021,7 +2043,7 @@ impl App {
         action_descriptor: Option<ActionDescriptor>,
     ) -> Result<AppEvents, anyhow::Error> {
         let location_id = action_descriptor
-            .and_then(|d| d.location().map(Rc::clone))
+            .and_then(|d| d.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let counts = self.store.count_by_location(&location_id).sum();
         if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
@@ -2031,7 +2053,7 @@ impl App {
 
         let res = self
             .store
-            .remove(&location_id)
+            .remove(location_id.part_type())
             .map(|_| AppEvents::ReloadData)?;
         self.update_status(format!("Location {} was DELETED!", location_id).as_str());
         Ok(res)
@@ -2042,7 +2064,7 @@ impl App {
         action_descriptor: Option<ActionDescriptor>,
     ) -> Result<AppEvents, anyhow::Error> {
         let project_id = action_descriptor
-            .and_then(|d| d.project().map(Rc::clone))
+            .and_then(|d| d.project().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let counts = self.store.count_by_project(&project_id).sum();
         if counts.added != 0 || counts.removed != 0 || counts.required != 0 {
@@ -2052,7 +2074,7 @@ impl App {
 
         let res = self
             .store
-            .remove(&project_id)
+            .remove(project_id.part_type())
             .map(|_| AppEvents::ReloadData)?;
         self.update_status(format!("Project {} was DELETED!", project_id).as_str());
         Ok(res)
@@ -2063,7 +2085,7 @@ impl App {
         action_descriptor: Option<ActionDescriptor>,
     ) -> Result<AppEvents, anyhow::Error> {
         let source_id = action_descriptor
-            .and_then(|d| d.source().map(Rc::clone))
+            .and_then(|d| d.source().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let counts = self.store.count_by_source(&source_id).sum();
         if counts.required != 0 {
@@ -2083,12 +2105,12 @@ impl App {
         let part_id = self
             .get_active_panel_data()
             .actionable_objects(self.view.get_active_panel_selection(), &self.store)
-            .and_then(|ad| ad.part().map(Rc::clone))
+            .and_then(|ad| ad.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let location_id = self
             .get_inactive_panel_data()
             .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-            .and_then(|ad| ad.location().map(Rc::clone))
+            .and_then(|ad| ad.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let count = self.store.get_by_location(&part_id, &location_id);
 
@@ -2130,10 +2152,10 @@ impl App {
         destination: Option<ActionDescriptor>,
     ) -> Result<AppEvents, anyhow::Error> {
         let part_id = source
-            .and_then(|ad| ad.part().map(Rc::clone))
+            .and_then(|ad| ad.part().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let location_id = destination
-            .and_then(|ad| ad.location().map(Rc::clone))
+            .and_then(|ad| ad.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
         let ev = LedgerEntry {
             t: Local::now().fixed_offset(),
@@ -2159,8 +2181,8 @@ impl App {
         let ev = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part: Rc::clone(part_id),
-            ev: LedgerEvent::ForceCount(Rc::clone(location_id)),
+            part: PartId::clone(part_id),
+            ev: LedgerEvent::ForceCount(LocationId::clone(location_id)),
         };
         self.store.record_event(&ev)?;
         self.store.update_count_cache(&ev);

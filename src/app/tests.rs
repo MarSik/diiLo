@@ -56,7 +56,7 @@ fn test_make_part_id() -> anyhow::Result<()> {
     let store = Store::new(store_path.into_path())?;
     let mut app = App::new(store)?;
 
-    let part_id = app.make_new_id("test");
+    let part_id = app.make_new_type_id("test");
     assert_eq!(part_id, "test".into());
 
     let part = Part {
@@ -65,7 +65,7 @@ fn test_make_part_id() -> anyhow::Result<()> {
     };
     app.store.insert_part_to_cache(part);
 
-    let part_id = app.make_new_id("test");
+    let part_id = app.make_new_type_id("test");
     assert_eq!(part_id, "test--1".into());
 
     let part = Part {
@@ -74,7 +74,7 @@ fn test_make_part_id() -> anyhow::Result<()> {
     };
     app.store.insert_part_to_cache(part);
 
-    let part_id = app.make_new_id("test");
+    let part_id = app.make_new_type_id("test");
     assert_eq!(part_id, "test--2".into());
 
     Ok(())

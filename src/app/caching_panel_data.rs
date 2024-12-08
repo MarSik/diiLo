@@ -27,7 +27,7 @@ impl ParentPanel {
 
     pub fn panel_title(&self, store: &Store, object_id: &PartId) -> String {
         let loc = store
-            .part_by_id(object_id)
+            .part_by_id(object_id.part_type())
             .map(|p| p.metadata.name.clone())
             .unwrap_or("<unknown>".to_string());
         [self.parent.panel_title(store), loc].join(" / ")
@@ -77,7 +77,7 @@ impl CachingPanelData {
         let mut parts: Vec<PanelItem> = loader();
 
         parts.sort_by_key(|f| f.name.to_lowercase());
-        let mut out = vec![PanelItem::new("<Back>", "", "", None)];
+        let mut out = vec![PanelItem::new("<Back>", "", "", None, None)];
         out.extend(parts);
 
         self.cached.replace(Some(out));
@@ -89,7 +89,7 @@ impl CachingPanelData {
 
     pub fn title(&self, store: &Store, object_id: &PartId) -> String {
         store
-            .part_by_id(object_id)
+            .part_by_id(object_id.part_type())
             .map(|p| p.metadata.name.clone())
             .unwrap_or("<unknown>".to_string())
     }
@@ -120,6 +120,17 @@ impl CachingPanelData {
     pub fn item_id<L: Fn() -> Vec<PanelItem>>(&self, idx: usize, loader: L) -> Option<PartId> {
         self.load_cache(loader);
         self.cached.borrow().as_ref().unwrap()[idx].id.clone()
+    }
+
+    pub fn item_parent_id<L: Fn() -> Vec<PanelItem>>(
+        &self,
+        idx: usize,
+        loader: L,
+    ) -> Option<PartId> {
+        self.load_cache(loader);
+        self.cached.borrow().as_ref().unwrap()[idx]
+            .parent_id
+            .clone()
     }
 
     pub fn item<L: Fn() -> Vec<PanelItem>>(&self, idx: usize, loader: L) -> PanelItem {

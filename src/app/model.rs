@@ -239,6 +239,7 @@ pub(super) struct PanelItem {
     pub name: String,
     pub summary: String,
     pub data: String,
+    pub parent_id: Option<PartId>,
     pub id: Option<PartId>,
 }
 
@@ -327,12 +328,19 @@ impl ActionDescriptor {
 }
 
 impl PanelItem {
-    pub fn new(name: &str, summary: &str, data: &str, id: Option<&PartId>) -> Self {
+    pub fn new(
+        name: &str,
+        summary: &str,
+        data: &str,
+        id: Option<&PartId>,
+        parent_id: Option<&PartId>,
+    ) -> Self {
         Self {
             name: name.to_string(),
             summary: summary.to_string(),
             data: data.to_string(),
             id: id.cloned(),
+            parent_id: parent_id.cloned(),
         }
     }
 }
