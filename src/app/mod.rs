@@ -310,7 +310,17 @@ impl App {
             (_, PanelContent::TypeSelection) => ActionVariant::None,
 
             (PanelContent::PartsInLocation, PanelContent::Locations) => ActionVariant::MovePart,
+            (PanelContent::PartsInLocation, PanelContent::LocationOfParts) => {
+                ActionVariant::MovePart
+            }
             (PanelContent::PartsInLocation, PanelContent::PartsInLocation) => {
+                ActionVariant::MovePart
+            }
+            (PanelContent::LocationOfParts, PanelContent::PartsInLocation) => {
+                ActionVariant::MovePart
+            }
+            (PanelContent::LocationOfParts, PanelContent::Locations) => ActionVariant::MovePart,
+            (PanelContent::LocationOfParts, PanelContent::LocationOfParts) => {
                 ActionVariant::MovePart
             }
 
