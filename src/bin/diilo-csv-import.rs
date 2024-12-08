@@ -1,6 +1,9 @@
 use std::{collections::HashSet, fs::File, path::PathBuf};
 
-use diilo::store::{LedgerEntry, LedgerEvent, Part, PartMetadata, Store};
+use diilo::store::{
+    types::{CountTracking, CountUnit},
+    LedgerEntry, LedgerEvent, Part, PartMetadata, Store,
+};
 use multimap::MultiMap;
 
 #[derive(Debug, serde::Deserialize)]
@@ -143,6 +146,9 @@ fn main() -> anyhow::Result<()> {
                 attributes: MultiMap::new(),
                 summary: csv_part.summary.trim().to_string(),
                 types: HashSet::new(),
+                track: CountTracking::Count,
+                consumable: false,
+                unit: CountUnit::Piece,
             },
             content: csv_part.description,
         };

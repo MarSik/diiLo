@@ -14,6 +14,42 @@ pub enum ObjectType {
     Location,
 }
 
+// How should the system track a part type
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum CountTracking {
+    // Track as simple count, pieces are equivalent and can be taken
+    // from a heap or placed to a heap of pieces as needed
+    #[default]
+    Count,
+    // Track as pieces with specific length (volume, count)
+    // Once broken to smaller pieces, the pieces cannot be joined back together
+    Pieces,
+    // Track as separate items, each item is unique and can be identified
+    // Mostly used for pieces that have their own serial number
+    Unique,
+}
+
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum CountUnit {
+    // Simple unit-less count
+    #[default]
+    Piece,
+    // Length
+    Centimeter,
+    MilliMeter,
+    Meter,
+    // Volume
+    Liter,
+    DeciLiter,
+    MilliLiter,
+}
+
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct PartMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -47,6 +83,19 @@ pub struct PartMetadata {
 
     #[serde(default)]
     pub summary: String,
+
+    #[serde(default)]
+    pub track: CountTracking,
+
+    // Can this part be released once used?
+    // consumable: true means it is lost after use and
+    // cannot be recovered
+    #[serde(default)]
+    pub consumable: bool,
+
+    // The smallest counting unit, pieces, meters, cm, mm, liters, ..
+    #[serde(default)]
+    pub unit: CountUnit,
 }
 
 #[derive(Debug, Clone, Default)]
