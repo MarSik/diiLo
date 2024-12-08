@@ -212,6 +212,10 @@ impl PartId {
             PartId::Unique(rc, _) => rc,
         }
     }
+
+    pub fn simple(&self) -> Self {
+        Self::Simple(self.part_type().clone())
+    }
 }
 
 impl From<&str> for PartId {

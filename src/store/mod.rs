@@ -274,10 +274,12 @@ impl Store {
     pub fn update_count_cache(&mut self, e: &LedgerEntry) {
         match &e.ev {
             LedgerEvent::TakeFrom(location) => {
+                // Keep serial or lot number
                 self.count_cache
                     .update_count(&e.part, location, NONE, ADD(e.count), NONE);
             }
             LedgerEvent::StoreTo(location) => {
+                // Keep serial or lot number
                 self.count_cache
                     .update_count(&e.part, location, ADD(e.count), NONE, NONE);
             }
@@ -298,20 +300,34 @@ impl Store {
                 ));
             }
             LedgerEvent::RequireIn(location) => {
+                // Requirement of type does not specify an exact part or piece, just the type
                 self.count_cache
-                    .update_count(&e.part, location, NONE, NONE, SET(e.count));
+                    .update_count(&e.part.simple(), location, NONE, NONE, SET(e.count));
             }
             LedgerEvent::RequireInProject(project) => {
-                self.project_cache
-                    .update_count(&e.part, project, NONE, NONE, SET(e.count));
+                // Requirement of type does not specify an exact part or piece, just the type
+                self.project_cache.update_count(
+                    &e.part.simple(),
+                    project,
+                    NONE,
+                    NONE,
+                    SET(e.count),
+                );
             }
             LedgerEvent::OrderFrom(source) => {
-                self.source_cache
-                    .update_count(&e.part, &source.into(), NONE, NONE, ADD(e.count));
+                // Order of type does not specify an exact part or piece, just the type
+                self.source_cache.update_count(
+                    &e.part.simple(),
+                    &source.into(),
+                    NONE,
+                    NONE,
+                    ADD(e.count),
+                );
             }
             LedgerEvent::CancelOrderFrom(source) => {
+                // Order of type does not specify an exact part or piece, just the type
                 self.source_cache.update_count(
-                    &e.part,
+                    &e.part.simple(),
                     &source.into(),
                     NONE,
                     NONE,
@@ -319,6 +335,7 @@ impl Store {
                 );
             }
             LedgerEvent::DeliverFrom(source) => {
+                // Delivery could contain a serial number, keep it
                 self.source_cache
                     .update_count(&e.part, &source.into(), ADD(e.count), NONE, NONE);
             }
