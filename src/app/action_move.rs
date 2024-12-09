@@ -28,14 +28,16 @@ impl App {
             self.view.action_count_dialog_count, &part_id, &source, &destination
         ));
 
+        let now = Local::now().fixed_offset();
+
         let event_from = LedgerEntry {
-            t: Local::now().fixed_offset(),
+            t: now,
             count: self.view.action_count_dialog_count,
             part: part_id.clone(),
             ev: LedgerEvent::TakeFrom(source),
         };
         let event_to = LedgerEntry {
-            t: Local::now().fixed_offset(),
+            t: now,
             count: self.view.action_count_dialog_count,
             part: part_id,
             ev: LedgerEvent::StoreTo(destination),

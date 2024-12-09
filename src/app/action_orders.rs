@@ -39,7 +39,7 @@ impl App {
         let event_to = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part,
+            part: part.simple(),
             ev,
         };
 
@@ -71,7 +71,7 @@ impl App {
         let event_to = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part,
+            part: part.simple(),
             ev: LedgerEvent::OrderFrom(destination),
         };
 
@@ -107,7 +107,7 @@ impl App {
         let event_from = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part: part.clone(),
+            part: part.simple(),
             ev: LedgerEvent::DeliverFrom(source),
         };
         let event_to = LedgerEntry {
@@ -139,7 +139,10 @@ impl App {
         let part_item = Some(self.panel_item_from_id(part_id)?);
 
         if let Some(location_id) = ad.location() {
-            let count = self.store.get_by_location(part_id, location_id).required();
+            let count = self
+                .store
+                .count_by_part_location(part_id, location_id)
+                .required();
             self.view.show_action_dialog(
                 action,
                 part_item,
@@ -147,7 +150,10 @@ impl App {
                 count,
             );
         } else if let Some(project_id) = ad.project() {
-            let count = self.store.get_by_project(part_id, project_id).required();
+            let count = self
+                .store
+                .count_by_part_project(part_id, project_id)
+                .required();
             self.view.show_action_dialog(
                 action,
                 part_item,
@@ -155,7 +161,10 @@ impl App {
                 count,
             );
         } else if let Some(source_id) = ad.source() {
-            let count = self.store.get_by_source(part_id, source_id).required();
+            let count = self
+                .store
+                .count_by_part_source(part_id, source_id)
+                .required();
             self.view.show_action_dialog(
                 action,
                 part_item,

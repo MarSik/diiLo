@@ -975,7 +975,7 @@ impl App {
             .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
             .and_then(|ad| ad.location().cloned())
             .ok_or(AppError::BadOperationContext)?;
-        let count = self.store.get_by_location(&part_id, &location_id);
+        let count = self.store.count_by_part_location(&part_id, &location_id);
 
         self.view.show_action_dialog(
             ActionVariant::ForceCount,
@@ -998,7 +998,7 @@ impl App {
             .as_ref()
             .and_then(|ad| ad.location())
             .ok_or(AppError::BadOperationContext)?;
-        let count = self.store.get_by_location(part_id, location_id);
+        let count = self.store.count_by_part_location(part_id, location_id);
 
         self.view.show_action_dialog(
             ActionVariant::ForceCountLocal,

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 
-use super::{LedgerEntry, LedgerEntryDto, LedgerEvent};
+use super::{LedgerEntry, LedgerEntryDto, LedgerEvent, PartId};
 
 impl From<&LedgerEntryDto> for LedgerEntry {
     fn from(val: &LedgerEntryDto) -> LedgerEntry {
@@ -13,25 +13,29 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             .unwrap_or_else(|| Ok(Local::now().fixed_offset()))
             .unwrap();
 
+        let part_id: PartId = val.part_id.as_str().into();
+        let part_id =
+            part_id.conditional_piece(val.piece_size.is_some(), val.piece_size.unwrap_or(1));
+
         if val.cmd_store {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::StoreTo(val.location_id.clone().unwrap().into()),
             }
         } else if val.cmd_take {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::TakeFrom(val.location_id.clone().unwrap().into()),
             }
         } else if val.cmd_deliver {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::DeliverFrom(
                     val.source_id
                         .as_ref()
@@ -45,7 +49,7 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::ReturnTo(
                     val.source_id
                         .as_ref()
@@ -59,7 +63,7 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::OrderFrom(
                     val.source_id
                         .as_ref()
@@ -73,7 +77,7 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::CancelOrderFrom(
                     val.source_id
                         .as_ref()
@@ -87,28 +91,28 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::RequireIn(val.location_id.clone().unwrap().into()),
             }
         } else if val.cmd_require && val.project_id.is_some() {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::RequireInProject(val.project_id.clone().unwrap().into()),
             }
         } else if val.cmd_require && val.source_id.is_some() {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::OrderFrom(val.source_id.clone().unwrap().into()),
             }
         } else if val.cmd_solder {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::SolderTo(
                     val.project_id
                         .as_ref()
@@ -122,7 +126,7 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::UnsolderFrom(
                     val.project_id
                         .as_ref()
@@ -136,14 +140,14 @@ impl From<&LedgerEntryDto> for LedgerEntry {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::ForceCount(val.location_id.clone().unwrap().into()),
             }
         } else {
             LedgerEntry {
                 t,
                 count: val.count,
-                part: val.part_id.as_str().into(),
+                part: part_id,
                 ev: LedgerEvent::TakeFrom(val.location_id.clone().unwrap().into()),
             }
         }
@@ -157,6 +161,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_take: true, // TODO check if location is a project -> unsolder
@@ -166,6 +171,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_store: true, // TODO check if location is a project -> solder
@@ -175,6 +181,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_unsolder: true,
@@ -184,6 +191,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_solder: true,
@@ -193,6 +201,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_set: true,
@@ -202,6 +211,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
                 cmd_require: true,
@@ -211,6 +221,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 project_id: Some(project_id.part_type().to_string()),
                 cmd_require: true,
@@ -220,6 +231,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 source_id: Some(source_id.to_string()),
                 cmd_return: true,
@@ -229,6 +241,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 source_id: Some(source.to_string()),
                 cmd_deliver: true,
@@ -238,6 +251,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 source_id: Some(source.to_string()),
                 cmd_order: true,
@@ -247,6 +261,7 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 time: Some(entry.t.to_rfc3339()),
                 transaction: None,
                 count: entry.count,
+                piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 source_id: Some(source.to_string()),
                 cmd_cancel_order: true,

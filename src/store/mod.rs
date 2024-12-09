@@ -23,7 +23,7 @@ pub mod types;
 
 use crate::app::errs::AppError;
 
-use types::LedgerEntryDto;
+use types::{CountTracking, LedgerEntryDto};
 pub use types::{
     LedgerEntry, LedgerEvent, LocationId, ObjectType, Part, PartId, PartMetadata, PartTypeId,
     ProjectId, SourceId,
@@ -236,6 +236,16 @@ impl Store {
                 o.t = last_t
             }
             last_t = o.t;
+
+            // Enhance PartId with piece size if needed
+            if let Some(part) = self.part_by_id(o.part.part_type()) {
+                if part.metadata.track == CountTracking::Pieces
+                    && o.part.piece_size_option().is_none()
+                {
+                    o.part = o.part.piece(part.metadata.piece_size.max(1));
+                }
+            }
+
             debug!("Converted to event {:?}", o);
             output.push(o);
         }
@@ -274,16 +284,59 @@ impl Store {
     pub fn update_count_cache(&mut self, e: &LedgerEntry) {
         match &e.ev {
             LedgerEvent::TakeFrom(location) => {
-                // Keep serial or lot number
+                // Keep serial or lot number, but handle pieces in case the count is not a multiple of piece size
+                let (count, keep_count) = if let PartId::Piece(_, s) = e.part {
+                    let mut full_pieces = e.count / s;
+                    let remainder = e.count % s;
+                    let keep = if remainder > 0 {
+                        // One extra piece needs to be cut
+                        full_pieces += 1;
+                        s - remainder
+                    } else {
+                        0
+                    };
+
+                    (full_pieces * s, keep)
+                } else {
+                    (e.count, 0)
+                };
+
                 self.count_cache
-                    .update_count(&e.part, location, NONE, ADD(e.count), NONE);
+                    .update_count(&e.part, location, NONE, ADD(count), NONE);
+                if keep_count > 0 {
+                    self.count_cache.update_count(
+                        &e.part.piece(keep_count),
+                        location,
+                        ADD(keep_count),
+                        NONE,
+                        NONE,
+                    );
+                }
             }
             LedgerEvent::StoreTo(location) => {
-                // Keep serial or lot number
+                // Keep serial or lot number, but handle pieces in case the count is not a multiple of piece size
+                let (full_count, partial_count) = if let PartId::Piece(_, s) = e.part {
+                    let full_pieces = e.count / s;
+                    let remainder = e.count % s;
+                    (full_pieces * s, remainder)
+                } else {
+                    (e.count, 0)
+                };
+
                 self.count_cache
-                    .update_count(&e.part, location, ADD(e.count), NONE, NONE);
+                    .update_count(&e.part, location, ADD(full_count), NONE, NONE);
+                if partial_count > 0 {
+                    self.count_cache.update_count(
+                        &e.part.piece(partial_count),
+                        location,
+                        ADD(partial_count),
+                        NONE,
+                        NONE,
+                    );
+                }
             }
             LedgerEvent::ForceCount(location) => {
+                // TODO handle partial count for Pieces
                 let count = self.count_cache.get_count(&e.part, location);
                 let (new_added, new_removed) = if (e.count as isize) > count.count() {
                     (count.removed() + e.count, count.removed())
@@ -340,16 +393,61 @@ impl Store {
                     .update_count(&e.part, &source.into(), ADD(e.count), NONE, NONE);
             }
             LedgerEvent::ReturnTo(source) => {
+                // Return could contain a serial number, keep it
                 self.source_cache
                     .update_count(&e.part, &source.into(), NONE, ADD(e.count), NONE);
             }
             LedgerEvent::UnsolderFrom(project) => {
+                // Keep serial or lot number, but handle pieces in case the count is not a multiple of piece size
+                let (count, keep_count) = if let PartId::Piece(_, s) = e.part {
+                    let mut full_pieces = e.count / s;
+                    let remainder = e.count % s;
+                    let keep = if remainder > 0 {
+                        // One extra piece needs to be cut
+                        full_pieces += 1;
+                        s - remainder
+                    } else {
+                        0
+                    };
+
+                    (full_pieces * s, keep)
+                } else {
+                    (e.count, 0)
+                };
+
                 self.project_cache
-                    .update_count(&e.part, project, NONE, ADD(e.count), NONE);
+                    .update_count(&e.part, project, NONE, ADD(count), NONE);
+                if keep_count > 0 {
+                    self.project_cache.update_count(
+                        &e.part.piece(keep_count),
+                        project,
+                        ADD(keep_count),
+                        NONE,
+                        NONE,
+                    );
+                }
             }
             LedgerEvent::SolderTo(project) => {
+                // Keep serial or lot number, but handle pieces in case the count is not a multiple of piece size
+                let (full_count, partial_count) = if let PartId::Piece(_, s) = e.part {
+                    let full_pieces = e.count / s;
+                    let remainder = e.count % s;
+                    (full_pieces * s, remainder)
+                } else {
+                    (e.count, 0)
+                };
+
                 self.project_cache
-                    .update_count(&e.part, project, ADD(e.count), NONE, NONE);
+                    .update_count(&e.part, project, ADD(full_count), NONE, NONE);
+                if partial_count > 0 {
+                    self.project_cache.update_count(
+                        &e.part.piece(partial_count),
+                        project,
+                        ADD(partial_count),
+                        NONE,
+                        NONE,
+                    );
+                }
             }
         }
     }
@@ -487,7 +585,7 @@ impl Store {
             .show_empty(part_id, location_id, show_empty);
     }
 
-    pub(crate) fn get_by_location(
+    pub(crate) fn count_by_part_location(
         &self,
         part_id: &PartId,
         location_id: &LocationId,
@@ -495,11 +593,19 @@ impl Store {
         self.count_cache.get_count(part_id, location_id)
     }
 
-    pub(crate) fn get_by_project(&self, part_id: &PartId, project_id: &PartId) -> CountCacheEntry {
+    pub(crate) fn count_by_part_project(
+        &self,
+        part_id: &PartId,
+        project_id: &PartId,
+    ) -> CountCacheEntry {
         self.project_cache.get_count(part_id, project_id)
     }
 
-    pub(crate) fn get_by_source(&self, part_id: &PartId, source_id: &SourceId) -> CountCacheEntry {
+    pub(crate) fn count_by_part_source(
+        &self,
+        part_id: &PartId,
+        source_id: &SourceId,
+    ) -> CountCacheEntry {
         self.source_cache.get_count(part_id, &source_id.into())
     }
 

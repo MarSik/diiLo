@@ -231,7 +231,7 @@ impl App {
                     .ok_or(AppError::BadOperationContext)?;
 
                 // Update requirement to 1 if not set
-                let count = self.store.get_by_location(part_id, location);
+                let count = self.store.count_by_part_location(part_id, location);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -258,7 +258,7 @@ impl App {
 
             if let Some(location) = action_desc.location() {
                 // Update requirement to 1 if not set
-                let count = self.store.get_by_location(&part_id, location);
+                let count = self.store.count_by_part_location(&part_id, location);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -293,7 +293,7 @@ impl App {
                 let part_id = action_desc.part().ok_or(AppError::BadOperationContext)?;
 
                 // Update requirement to 1 if not set
-                let count = self.store.get_by_location(part_id, location_id);
+                let count = self.store.count_by_part_location(part_id, location_id);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -324,7 +324,7 @@ impl App {
 
             if let Some(part_id) = action_desc.part() {
                 // Update requirement to 1 if not set
-                let count = self.store.get_by_location(part_id, &location_id);
+                let count = self.store.count_by_part_location(part_id, &location_id);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -397,7 +397,7 @@ impl App {
                 let project_id = action_desc.project().ok_or(AppError::BadOperationContext)?;
 
                 // Update order to 1 if not set
-                let count = self.store.get_by_project(part_id, project_id);
+                let count = self.store.count_by_part_project(part_id, project_id);
                 if count.required() == 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -424,7 +424,7 @@ impl App {
 
             if let Some(project_id) = action_desc.project() {
                 // Update order to 1 if not set
-                let count = self.store.get_by_project(&part_id, project_id);
+                let count = self.store.count_by_part_project(&part_id, project_id);
                 if count.required() == 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),

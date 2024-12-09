@@ -177,7 +177,7 @@ impl App {
         let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
         let location_id = ad.location().ok_or(AppError::BadOperationContext)?;
 
-        let count = self.store.get_by_location(part_id, location_id);
+        let count = self.store.count_by_part_location(part_id, location_id);
         if count.required() > 0 {
             let require_zero = LedgerEntry {
                 t: Local::now().fixed_offset(),
@@ -206,7 +206,7 @@ impl App {
         let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
         let project_id = ad.project().ok_or(AppError::BadOperationContext)?;
 
-        let count = self.store.get_by_project(part_id, project_id);
+        let count = self.store.count_by_part_project(part_id, project_id);
         if count.required() > 0 {
             let require_zero = LedgerEntry {
                 t: Local::now().fixed_offset(),
@@ -233,7 +233,7 @@ impl App {
         let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
         let source_id = ad.source().ok_or(AppError::BadOperationContext)?;
 
-        let count = self.store.get_by_source(part_id, source_id);
+        let count = self.store.count_by_part_source(part_id, source_id);
         let entry = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: count.required().saturating_sub(count.added()),

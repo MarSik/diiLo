@@ -1,4 +1,4 @@
-use crate::store::{cache::CountCacheSum, filter::Query, PartId, Store};
+use crate::store::{cache::CountCacheSum, filter::Query, types::CountUnit, PartId, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
@@ -178,8 +178,22 @@ impl PanelPartLocationsSelection {
                     count.count().to_string()
                 };
 
+                let part = store.part_by_id(self.part_id.part_type());
+
+                let name = match count.part() {
+                    PartId::Simple(_) => p.metadata.name.to_string(),
+                    PartId::Piece(_, s) => format!(
+                        "{} [{}{}]",
+                        p.metadata.name,
+                        s,
+                        part.map(|part| part.metadata.unit)
+                            .unwrap_or(CountUnit::Piece)
+                    ),
+                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                };
+
                 PanelItem::new(
-                    &p.metadata.name,
+                    &name,
                     &p.metadata.summary,
                     &data,
                     Some(count.part()),

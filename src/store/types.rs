@@ -39,15 +39,36 @@ pub enum CountTracking {
 pub enum CountUnit {
     // Simple unit-less count
     #[default]
+    #[serde(rename = "pc")]
     Piece,
     // Length
+    #[serde(rename = "cm")]
     Centimeter,
+    #[serde(rename = "mm")]
     MilliMeter,
+    #[serde(rename = "m")]
     Meter,
     // Volume
+    #[serde(rename = "l")]
     Liter,
+    #[serde(rename = "dl")]
     DeciLiter,
+    #[serde(rename = "ml")]
     MilliLiter,
+}
+
+impl std::fmt::Display for CountUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CountUnit::Piece => f.write_str("pc"),
+            CountUnit::Centimeter => f.write_str("cm"),
+            CountUnit::MilliMeter => f.write_str("mm"),
+            CountUnit::Meter => f.write_str("m"),
+            CountUnit::Liter => f.write_str("l"),
+            CountUnit::DeciLiter => f.write_str("dl"),
+            CountUnit::MilliLiter => f.write_str("mm"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
@@ -96,6 +117,11 @@ pub struct PartMetadata {
     // The smallest counting unit, pieces, meters, cm, mm, liters, ..
     #[serde(default)]
     pub unit: CountUnit,
+
+    // The piece size on delivery
+    // Used only when track is set to Pieces
+    #[serde(default)]
+    pub piece_size: usize,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -193,6 +219,11 @@ pub(crate) struct LedgerEntryDto {
     #[serde(skip_serializing_if = "is_false")]
     #[serde(default)]
     pub(super) cmd_set: bool,
+
+    #[serde(rename = "size", alias = "len", alias = "l")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub(super) piece_size: Option<usize>,
 }
 
 pub type PartTypeId = Rc<str>;
@@ -200,7 +231,7 @@ pub type PartTypeId = Rc<str>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PartId {
     Simple(PartTypeId),
-    Piece(PartTypeId, usize), // .1 is piece counter and must be unique at least per .0 type
+    Piece(PartTypeId, usize), // .1 is piece counter and must represent the size of the piece at least per .0 type
     Unique(PartTypeId, Rc<str>), // .1 is a serial number
 }
 
@@ -215,6 +246,42 @@ impl PartId {
 
     pub fn simple(&self) -> Self {
         Self::Simple(self.part_type().clone())
+    }
+
+    pub fn piece(&self, l: usize) -> Self {
+        Self::Piece(self.part_type().clone(), l)
+    }
+
+    pub fn piece_size(&self) -> usize {
+        match self {
+            PartId::Simple(_) => 1,
+            PartId::Piece(_, s) => *s,
+            PartId::Unique(_, _) => 1,
+        }
+    }
+
+    pub fn piece_size_option(&self) -> Option<usize> {
+        match self {
+            PartId::Simple(_) => None,
+            PartId::Piece(_, s) => Some(*s),
+            PartId::Unique(_, _) => None,
+        }
+    }
+
+    pub fn maybe_sized(&self, l: usize) -> Self {
+        match self {
+            PartId::Simple(_) => self.clone(),
+            PartId::Piece(_, _) => self.piece(l),
+            PartId::Unique(_, _) => self.clone(),
+        }
+    }
+
+    pub fn conditional_piece(&self, is_piece: bool, l: usize) -> Self {
+        if is_piece {
+            self.piece(l)
+        } else {
+            self.clone()
+        }
     }
 }
 

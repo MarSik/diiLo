@@ -1,4 +1,4 @@
-use crate::store::{cache::CountCacheSum, filter::Query, SourceId, Store};
+use crate::store::{cache::CountCacheSum, filter::Query, PartId, SourceId, Store};
 
 use super::{
     caching_panel_data::{self, CachingPanelData, ParentPanel},
@@ -310,8 +310,16 @@ impl PanelPartFromSourcesSelection {
                     count.count().to_string()
                 };
 
+                let name = match count.part() {
+                    PartId::Simple(_) => p.metadata.name.to_string(),
+                    PartId::Piece(_, s) => {
+                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
+                    }
+                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                };
+
                 PanelItem::new(
-                    &p.metadata.name,
+                    &name,
                     &p.metadata.summary,
                     &data,
                     Some(&p.id.as_ref().into()),
@@ -452,8 +460,16 @@ impl PanelOrderedFromSourcesSelection {
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
+                let name = match count.part() {
+                    PartId::Simple(_) => p.metadata.name.to_string(),
+                    PartId::Piece(_, s) => {
+                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
+                    }
+                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                };
+
                 PanelItem::new(
-                    &p.metadata.name,
+                    &name,
                     &p.metadata.summary,
                     &data,
                     Some(&p.id.as_ref().into()),
