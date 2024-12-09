@@ -321,11 +321,11 @@ impl Store {
                     .update_count(&e.part, source, NONE, ADD(e.count), NONE);
             }
             LedgerEvent::UnsolderFrom(project) => {
-                self.count_cache
+                self.project_cache
                     .update_count(&e.part, project, NONE, ADD(e.count), NONE);
             }
             LedgerEvent::SolderTo(project) => {
-                self.count_cache
+                self.project_cache
                     .update_count(&e.part, project, ADD(e.count), NONE, NONE);
             }
         }
