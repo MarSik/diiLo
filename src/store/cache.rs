@@ -290,6 +290,7 @@ impl CountCache {
             if p_id.part_type() == part_type_id {
                 acc.extend(
                     cs.iter()
+                        .filter(|cce| cce.show_empty() || cce.count() != 0)
                         .map(|c: &Rc<CountCacheEntry>| CountCacheEntry::clone(c)),
                 )
             }
@@ -304,6 +305,7 @@ impl CountCache {
                 if p_id.part_type() == location_type_id {
                     acc.extend(
                         cs.iter()
+                            .filter(|cce| cce.show_empty() || cce.count() != 0)
                             .map(|c: &Rc<CountCacheEntry>| CountCacheEntry::clone(c)),
                     )
                 }

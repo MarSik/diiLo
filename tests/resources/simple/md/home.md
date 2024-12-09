@@ -1,0 +1,5 @@
+---
+name: Home
+types:
+- location
+---

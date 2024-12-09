@@ -79,14 +79,20 @@ impl Store {
         })
     }
 
-    pub fn load_part(path: impl AsRef<Path>) -> anyhow::Result<Part> {
+    pub fn load_part_from_file(path: impl AsRef<Path>) -> anyhow::Result<Part> {
         debug!("Loading: {:?}", path.as_ref());
 
         let input = fs::read_to_string(path.as_ref())?;
+        let mut part = Self::load_part_from_string(&input, Self::part_path_to_id(path.as_ref()))?;
+        part.filename = Some(PathBuf::from(path.as_ref()));
+        Ok(part)
+    }
+
+    pub fn load_part_from_string(input: &str, fallback_id: Rc<str>) -> Result<Part, anyhow::Error> {
         let matter = Matter::<YAML>::new();
         //let mut entity = matter.parse_with_struct::<PartMetadata>(&input).unwrap();
 
-        let parsed_entity = matter.parse(&input);
+        let parsed_entity = matter.parse(input);
         let data: PartMetadata = if let Some(pod) = parsed_entity.data {
             pod.deserialize()?
         } else {
@@ -110,9 +116,9 @@ impl Store {
             id: if let Some(id) = &entity.data.id {
                 id.as_str().into()
             } else {
-                Self::part_path_to_id(path.as_ref())
+                fallback_id
             },
-            filename: Some(PathBuf::from(path.as_ref())),
+            filename: None,
             metadata: entity.data,
             content: entity.content,
         })
@@ -138,14 +144,14 @@ impl Store {
 
     // Drop information caches and reload all parts from the stored
     // markdown files.
-    pub fn scan_parts(&mut self) -> anyhow::Result<()> {
+    pub fn load_parts(&mut self) -> anyhow::Result<()> {
         self.parts.clear();
         self.labels.clear();
 
         let dir = walkdir::WalkDir::new(Path::new(&self.basepath).join("md"));
         for f in dir.into_iter().flatten() {
             if f.file_type().is_file() {
-                let part = Self::load_part(f.path())?;
+                let part = Self::load_part_from_file(f.path())?;
                 self.insert_part_to_cache(part);
             }
         }
@@ -153,7 +159,7 @@ impl Store {
         Ok(())
     }
 
-    pub(crate) fn insert_part_to_cache(&mut self, part: Part) {
+    pub fn insert_part_to_cache(&mut self, part: Part) {
         // Populate label caches
         for (k, vs) in &part.metadata.labels {
             if !self.labels.contains_key(k) {
@@ -213,14 +219,18 @@ impl Store {
         Ok(())
     }
 
-    fn load_events_from_file(&mut self, filename: &str) -> anyhow::Result<Vec<LedgerEntry>> {
+    pub fn load_events_from_file(&mut self, filename: &str) -> anyhow::Result<Vec<LedgerEntry>> {
+        let f = File::open(filename)?;
+        let f = BufReader::new(f);
+        self.load_events_from_buf(f)
+    }
+
+    pub fn load_events_from_buf(&mut self, f: impl BufRead) -> anyhow::Result<Vec<LedgerEntry>> {
         // TODO This is not effective, but allows handling parsing errors in the loop
         //      Direct iterator based approach would be better.
         let mut output = Vec::new();
         let mut loaded = Vec::new();
 
-        let f = File::open(filename)?;
-        let f = BufReader::new(f);
         let lines = f.lines();
         for l in lines.map_while(Result::ok) {
             let v = serde_keyvalue::from_key_values::<LedgerEntryDto>(l.as_str())?;
@@ -254,6 +264,8 @@ impl Store {
     }
 
     // Drop all count caches and reload all ledgers from files
+    // It is better when `load_parts` is called before the ledger is loaded,
+    // because it can provide some information to incomplete event records
     pub fn load_events(&mut self) -> anyhow::Result<Vec<LedgerEntry>> {
         let mut output = Vec::new();
 
@@ -585,7 +597,7 @@ impl Store {
             .show_empty(part_id, location_id, show_empty);
     }
 
-    pub(crate) fn count_by_part_location(
+    pub fn count_by_part_location(
         &self,
         part_id: &PartId,
         location_id: &LocationId,
@@ -593,34 +605,23 @@ impl Store {
         self.count_cache.get_count(part_id, location_id)
     }
 
-    pub(crate) fn count_by_part_project(
-        &self,
-        part_id: &PartId,
-        project_id: &PartId,
-    ) -> CountCacheEntry {
+    pub fn count_by_part_project(&self, part_id: &PartId, project_id: &PartId) -> CountCacheEntry {
         self.project_cache.get_count(part_id, project_id)
     }
 
-    pub(crate) fn count_by_part_source(
-        &self,
-        part_id: &PartId,
-        source_id: &SourceId,
-    ) -> CountCacheEntry {
+    pub fn count_by_part_source(&self, part_id: &PartId, source_id: &SourceId) -> CountCacheEntry {
         self.source_cache.get_count(part_id, &source_id.into())
     }
 
-    pub(crate) fn count_by_project(&self, project_id: &LocationId) -> Vec<CountCacheEntry> {
+    pub fn count_by_project(&self, project_id: &LocationId) -> Vec<CountCacheEntry> {
         self.project_cache.by_location(project_id)
     }
 
-    pub(crate) fn count_by_project_type(&self, project_id: &PartTypeId) -> Vec<CountCacheEntry> {
+    pub fn count_by_project_type(&self, project_id: &PartTypeId) -> Vec<CountCacheEntry> {
         self.project_cache.by_location_type(project_id)
     }
 
-    pub(crate) fn parts_by_project(
-        &self,
-        project_id: &LocationId,
-    ) -> Vec<(&Part, CountCacheEntry)> {
+    pub fn parts_by_project(&self, project_id: &LocationId) -> Vec<(&Part, CountCacheEntry)> {
         let mut out = Vec::new();
 
         for en in self.count_by_project(project_id) {
@@ -642,15 +643,15 @@ impl Store {
             .show_empty(part_id, project_id, show_empty)
     }
 
-    pub(crate) fn get_projects_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
+    pub fn get_projects_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
         self.project_cache.by_part(part_id)
     }
 
-    pub(crate) fn get_sources_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
+    pub fn get_sources_by_part(&self, part_id: &PartId) -> Vec<CountCacheEntry> {
         self.source_cache.by_part(part_id)
     }
 
-    pub(crate) fn remove(&mut self, part_type_id: &PartTypeId) -> Result<(), AppError> {
+    pub fn remove(&mut self, part_type_id: &PartTypeId) -> Result<(), AppError> {
         let part = self
             .parts
             .get(part_type_id)

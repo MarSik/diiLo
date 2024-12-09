@@ -646,7 +646,7 @@ impl App {
     }
 
     pub fn full_reload(&mut self) -> anyhow::Result<()> {
-        self.store.scan_parts()?;
+        self.store.load_parts()?;
         self.store.load_events()?;
 
         self.reload();

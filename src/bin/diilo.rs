@@ -171,7 +171,7 @@ fn open_in_editor(app: &mut App, part_id: &std::rc::Rc<str>) -> anyhow::Result<S
     terminal.clear()?;
 
     // Check for changes, validate and reload
-    match Store::load_part(temp_file.clone()) {
+    match Store::load_part_from_file(temp_file.clone()) {
         Ok(mut new_part) => {
             debug!(
                 "Copying {:?} back to storage location {:?}",
