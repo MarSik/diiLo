@@ -196,7 +196,7 @@ impl PanelProjectPartsSelection {
                     &p.metadata.summary,
                     &data,
                     Some(count.part()),
-                    Some(&self.project_id),
+                    Some(count.location()),
                 )
             })
             .collect()

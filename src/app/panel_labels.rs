@@ -1,4 +1,4 @@
-use crate::store::{cache::CountCacheSum, filter::Query, Store};
+use crate::store::{cache::CountCacheSum, filter::Query, PartTypeId, Store};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
@@ -370,7 +370,11 @@ impl PanelData for PanelPartByLabelSelection {
 
         if let Some(item_id) = self.cached.item_id(idx, || self.load_cache(store)) {
             EnterAction(
-                Box::new(PanelPartLocationsSelection::new(self, idx, item_id)),
+                Box::new(PanelPartLocationsSelection::new(
+                    self,
+                    idx,
+                    PartTypeId::clone(item_id.part_type()),
+                )),
                 0,
             )
         } else {

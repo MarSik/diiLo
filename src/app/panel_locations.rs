@@ -195,7 +195,7 @@ impl PanelLocationPartsSelection {
                     &p.metadata.summary,
                     &data,
                     Some(count.part()),
-                    Some(&self.location_id),
+                    Some(count.location()),
                 )
             })
             .collect()

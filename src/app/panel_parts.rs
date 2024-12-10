@@ -1,4 +1,6 @@
-use crate::store::{cache::CountCacheSum, filter::Query, types::CountUnit, PartId, Store};
+use crate::store::{
+    cache::CountCacheSum, filter::Query, types::CountUnit, PartId, PartTypeId, Store,
+};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},
@@ -67,7 +69,11 @@ impl PanelData for PanelPartSelection {
 
         if let Some(item_id) = self.cached.item_id(idx, loader) {
             EnterAction(
-                Box::new(PanelPartLocationsSelection::new(self, idx, item_id)),
+                Box::new(PanelPartLocationsSelection::new(
+                    self,
+                    idx,
+                    PartTypeId::clone(item_id.part_type()),
+                )),
                 0,
             )
         } else {
@@ -154,22 +160,22 @@ impl PanelData for PanelPartSelection {
 #[derive(Debug)]
 pub struct PanelPartLocationsSelection {
     parent: ParentPanel,
-    part_id: PartId,
+    part_type_id: PartTypeId,
     cached: CachingPanelData,
 }
 
 impl PanelPartLocationsSelection {
-    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, part_id: PartId) -> Self {
+    pub fn new(parent: Box<dyn PanelData>, parent_idx: usize, part_type_id: PartTypeId) -> Self {
         Self {
             parent: ParentPanel::new(parent, parent_idx),
             cached: CachingPanelData::new(),
-            part_id,
+            part_type_id,
         }
     }
 
     fn load_cache(&self, store: &Store) -> Vec<PanelItem> {
         store
-            .locations_by_part(&self.part_id)
+            .locations_by_part_type(&self.part_type_id)
             .iter()
             .map(|(p, count)| {
                 let data = if count.required() > 0 {
@@ -178,7 +184,7 @@ impl PanelPartLocationsSelection {
                     count.count().to_string()
                 };
 
-                let part = store.part_by_id(self.part_id.part_type());
+                let part = store.part_by_id(&self.part_type_id);
 
                 let name = match count.part() {
                     PartId::Simple(_) => p.metadata.name.to_string(),
@@ -196,8 +202,8 @@ impl PanelPartLocationsSelection {
                     &name,
                     &p.metadata.summary,
                     &data,
+                    Some(count.location()),
                     Some(count.part()),
-                    Some(&self.part_id),
                 )
             })
             .collect()
@@ -206,12 +212,13 @@ impl PanelPartLocationsSelection {
 
 impl PanelData for PanelPartLocationsSelection {
     fn title(&self, store: &Store) -> String {
-        let loc = self.cached.title(store, &self.part_id);
+        let loc = self.cached.title(store, &self.part_type_id.as_ref().into());
         format!("Locations of {}", loc).to_string()
     }
 
     fn panel_title(&self, store: &Store) -> String {
-        self.parent.panel_title(store, &self.part_id)
+        self.parent
+            .panel_title(store, &self.part_type_id.as_ref().into())
     }
 
     fn data_type(&self) -> PanelContent {
@@ -248,8 +255,7 @@ impl PanelData for PanelPartLocationsSelection {
     }
 
     fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor> {
-        // Even when no item is selected, the parent itself can be a target
-        let mut ad = ActionDescriptor::new().add_part(self.part_id.clone());
+        let mut ad = ActionDescriptor::new();
 
         self.load_cache(store);
         if let Some(location_id) = self.cached.item_id(idx, || self.load_cache(store)) {
