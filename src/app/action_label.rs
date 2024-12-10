@@ -27,6 +27,7 @@ impl App {
             Some(label_item),
             Some(self.panel_item_from_id(part_id)?),
             0,
+            0,
         );
 
         Ok(())

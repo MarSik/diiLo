@@ -50,6 +50,9 @@ impl App {
             KeyCode::F(4) => return self.press_f4(),
 
             KeyCode::F(5) => return self.press_f5(),
+            KeyCode::F(6) if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+                return self.press_ctrl_f6()
+            }
             KeyCode::F(6) => return self.press_f6(),
 
             KeyCode::F(7) => return self.press_f7(),

@@ -22,6 +22,7 @@ pub struct View {
     pub(super) action_count_dialog_source: Option<PanelItem>,
     pub(super) action_count_dialog_destination: Option<PanelItem>,
     pub(super) action_count_dialog_count: usize,
+    pub(super) action_count_dialog_step: usize,
     pub(super) action_count_dialog_typing: bool,
     pub(super) status: String,
     pub(super) create_dialog: DialogState,
@@ -161,11 +162,13 @@ impl View {
         source: Option<PanelItem>,
         destination: Option<PanelItem>,
         count: usize,
+        step: usize,
     ) {
         self.cancel_on_move();
         self.action_count_dialog = DialogState::Visible;
         self.action_count_dialog_action = action;
         self.action_count_dialog_count = count;
+        self.action_count_dialog_step = step;
         self.action_count_dialog_typing = false;
         self.action_count_dialog_source = source;
         self.action_count_dialog_destination = destination;
@@ -184,7 +187,10 @@ impl View {
             return;
         }
 
-        self.action_count_dialog_count += 1;
+        let steps = self.action_count_dialog_count / self.action_count_dialog_step.max(1);
+        let steps = steps.saturating_add(1);
+
+        self.action_count_dialog_count = self.action_count_dialog_step.max(1).saturating_mul(steps);
         self.action_count_dialog_typing = false;
     }
 
@@ -193,7 +199,15 @@ impl View {
             return;
         }
 
-        self.action_count_dialog_count = self.action_count_dialog_count.saturating_sub(1);
+        let steps = self.action_count_dialog_count / self.action_count_dialog_step.max(1);
+        let reminder = self.action_count_dialog_count % self.action_count_dialog_step.max(1);
+        let steps = if reminder > 0 {
+            steps
+        } else {
+            steps.saturating_sub(1)
+        };
+
+        self.action_count_dialog_count = self.action_count_dialog_step.max(1).saturating_mul(steps);
         self.action_count_dialog_typing = false;
     }
 

@@ -1,6 +1,5 @@
 use std::{mem::replace, rc::Rc};
 
-use chrono::Local;
 use errs::AppError;
 use log::{debug, error, info};
 use model::{ActionDescriptor, EnterAction, Model, PanelContent, PanelData, PanelItem};
@@ -8,13 +7,13 @@ use tui_input::Input;
 use view::{ActivePanel, DialogState, View};
 
 use crate::store::{
-    filter::Query, LedgerEntry, LedgerEvent, LocationId, Part, PartId, PartTypeId, ProjectId,
-    SourceId, Store,
+    filter::Query, types::CountTracking, Part, PartId, PartTypeId, SourceId, Store,
 };
 
 mod action_create;
 mod action_delete;
 mod action_label;
+mod action_local;
 mod action_move;
 mod action_orders;
 mod action_solder;
@@ -105,6 +104,7 @@ pub enum ActionVariant {
     ForceCount,
     ForceCountLocal,
     Delete,
+    SplitLocal,
 }
 
 impl ActionVariant {
@@ -130,6 +130,7 @@ impl ActionVariant {
             ActionVariant::ForceCount => "force count",
             ActionVariant::ForceCountLocal => "force count",
             ActionVariant::Delete => "delete",
+            ActionVariant::SplitLocal => "split",
         }
     }
 
@@ -143,6 +144,7 @@ impl ActionVariant {
                 | ActionVariant::ClonePart
                 | ActionVariant::CreatePart
                 | ActionVariant::ForceCountLocal
+                | ActionVariant::SplitLocal
         )
     }
 
@@ -168,6 +170,7 @@ impl ActionVariant {
             ActionVariant::Delete => "Delete part",
             ActionVariant::ForceCount => "Force count",
             ActionVariant::ForceCountLocal => "Force count",
+            ActionVariant::SplitLocal => "Split piece",
         }
     }
 
@@ -193,6 +196,7 @@ impl ActionVariant {
             ActionVariant::Delete => false,
             ActionVariant::ForceCount => true,
             ActionVariant::ForceCountLocal => true,
+            ActionVariant::SplitLocal => true,
         }
     }
 }
@@ -272,6 +276,14 @@ impl App {
         match self.get_action_direction() {
             (PanelContent::PartsInLocation, _) => ActionVariant::ForceCountLocal,
             (PanelContent::LocationOfParts, _) => ActionVariant::ForceCountLocal,
+            (_, _) => ActionVariant::None,
+        }
+    }
+
+    pub fn ctrl_f6_action(&self) -> ActionVariant {
+        match self.get_action_direction() {
+            (PanelContent::PartsInLocation, _) => ActionVariant::SplitLocal,
+            (PanelContent::LocationOfParts, _) => ActionVariant::SplitLocal,
             (_, _) => ActionVariant::None,
         }
     }
@@ -456,6 +468,7 @@ impl App {
                     ActionVariant::ForceCountLocal => {
                         self.finish_action_force_count_local(source.as_ref())
                     }
+                    ActionVariant::SplitLocal => self.finish_action_split_local(source.as_ref()),
 
                     // These are called in different way, keep the todo here to catch errors
                     ActionVariant::CreatePart => todo!(),
@@ -486,6 +499,19 @@ impl App {
 
     pub fn press_ctrl_f9(&mut self) -> Result<AppEvents, AppError> {
         let action = self.ctrl_f9_action();
+
+        if !self
+            .get_active_panel_data()
+            .item_actionable(self.view.get_active_panel_selection())
+        {
+            return Ok(AppEvents::Nop);
+        }
+
+        self.interpret_action(action)
+    }
+
+    pub fn press_ctrl_f6(&mut self) -> Result<AppEvents, AppError> {
+        let action = self.ctrl_f6_action();
 
         if !self
             .get_active_panel_data()
@@ -630,6 +656,9 @@ impl App {
             ActionVariant::ForceCountLocal => {
                 self.prepare_force_count_local()?;
             }
+            ActionVariant::SplitLocal => {
+                self.prepare_split_local()?;
+            }
         };
 
         // The code above just opens dialogs and does not manipulate data
@@ -641,8 +670,9 @@ impl App {
         let source = self
             .get_active_panel_data()
             .item(self.view.get_active_panel_selection(), &self.store);
+        // Step 1 - move operation can cut pieces
         self.view
-            .show_action_dialog(action, Some(source), destination, 0);
+            .show_action_dialog(action, Some(source), destination, 0, 1);
     }
 
     pub fn full_reload(&mut self) -> anyhow::Result<()> {
@@ -778,7 +808,11 @@ impl App {
                     &p.metadata.name,
                     &p.metadata.summary,
                     "",
-                    Some(&p.id.as_ref().into()),
+                    // Provide ID with pieces type as a hint to the renderer and cache when needed
+                    Some(
+                        &Into::<PartId>::into(p.id.as_ref())
+                            .conditional_piece(p.metadata.track == CountTracking::Pieces, 0),
+                    ),
                     None,
                 )
             })
@@ -853,47 +887,6 @@ impl App {
         error!("{}: {}", title, alert);
     }
 
-    fn finish_action_require_local(
-        &mut self,
-        source: Option<&ActionDescriptor>,
-    ) -> anyhow::Result<AppEvents> {
-        let ad = source.ok_or(AppError::BadOperationContext)?;
-        let part_id = ad.part().ok_or(AppError::BadOperationContext)?;
-
-        if let Some(location_id) = ad.location() {
-            let ev = LedgerEntry {
-                t: Local::now().fixed_offset(),
-                count: self.view.action_count_dialog_count,
-                part: PartId::clone(part_id),
-                ev: LedgerEvent::RequireIn(LocationId::clone(location_id)),
-            };
-            self.store.update_count_cache(&ev);
-            self.store.record_event(&ev)?;
-        } else if let Some(source_id) = ad.source() {
-            let ev = LedgerEntry {
-                t: Local::now().fixed_offset(),
-                count: self.view.action_count_dialog_count,
-                part: PartId::clone(part_id),
-                ev: LedgerEvent::OrderFrom(Rc::clone(source_id)),
-            };
-            self.store.update_count_cache(&ev);
-            self.store.record_event(&ev)?;
-        } else if let Some(project_id) = ad.project() {
-            let ev = LedgerEntry {
-                t: Local::now().fixed_offset(),
-                count: self.view.action_count_dialog_count,
-                part: PartId::clone(part_id),
-                ev: LedgerEvent::RequireInProject(ProjectId::clone(project_id)),
-            };
-            self.store.update_count_cache(&ev);
-            self.store.record_event(&ev)?;
-        } else {
-            return Ok(AppEvents::Redraw);
-        }
-
-        Ok(AppEvents::ReloadData)
-    }
-
     fn open_filter_dialog(&mut self) {
         match self.get_active_panel_data().filter_status() {
             model::FilterStatus::NotSupported => (),
@@ -962,94 +955,6 @@ impl App {
                 AppEvents::Select(selected.to_string())
             }
         }
-    }
-
-    fn prepare_force_count(&mut self) -> Result<AppEvents, AppError> {
-        let part_id = self
-            .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
-            .and_then(|ad| ad.part().cloned())
-            .ok_or(AppError::BadOperationContext)?;
-        let location_id = self
-            .get_inactive_panel_data()
-            .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
-            .and_then(|ad| ad.location().cloned())
-            .ok_or(AppError::BadOperationContext)?;
-        let count = self.store.count_by_part_location(&part_id, &location_id);
-
-        self.view.show_action_dialog(
-            ActionVariant::ForceCount,
-            Some(self.panel_item_from_id(&part_id)?),
-            Some(self.panel_item_from_id(&location_id)?),
-            count.count().max(0) as usize,
-        );
-        Ok(AppEvents::Redraw)
-    }
-
-    fn prepare_force_count_local(&mut self) -> Result<AppEvents, AppError> {
-        let ad = self
-            .get_active_panel_data()
-            .actionable_objects(self.view.get_active_panel_selection(), &self.store);
-        let part_id = ad
-            .as_ref()
-            .and_then(|ad| ad.part())
-            .ok_or(AppError::BadOperationContext)?;
-        let location_id = ad
-            .as_ref()
-            .and_then(|ad| ad.location())
-            .ok_or(AppError::BadOperationContext)?;
-        let count = self.store.count_by_part_location(part_id, location_id);
-
-        self.view.show_action_dialog(
-            ActionVariant::ForceCountLocal,
-            Some(self.panel_item_from_id(part_id)?),
-            Some(self.panel_item_from_id(location_id)?),
-            count.count().max(0) as usize,
-        );
-        Ok(AppEvents::Redraw)
-    }
-
-    fn finish_action_force_count(
-        &mut self,
-        source: Option<ActionDescriptor>,
-        destination: Option<ActionDescriptor>,
-    ) -> Result<AppEvents, anyhow::Error> {
-        let part_id = source
-            .and_then(|ad| ad.part().cloned())
-            .ok_or(AppError::BadOperationContext)?;
-        let location_id = destination
-            .and_then(|ad| ad.location().cloned())
-            .ok_or(AppError::BadOperationContext)?;
-        let ev = LedgerEntry {
-            t: Local::now().fixed_offset(),
-            count: self.view.action_count_dialog_count,
-            part: part_id,
-            ev: LedgerEvent::ForceCount(location_id),
-        };
-        self.store.record_event(&ev)?;
-        self.store.update_count_cache(&ev);
-        Ok(AppEvents::ReloadData)
-    }
-
-    fn finish_action_force_count_local(
-        &mut self,
-        ad: Option<&ActionDescriptor>,
-    ) -> Result<AppEvents, anyhow::Error> {
-        let part_id = ad
-            .and_then(|ad| ad.part())
-            .ok_or(AppError::BadOperationContext)?;
-        let location_id = ad
-            .and_then(|ad| ad.location())
-            .ok_or(AppError::BadOperationContext)?;
-        let ev = LedgerEntry {
-            t: Local::now().fixed_offset(),
-            count: self.view.action_count_dialog_count,
-            part: PartId::clone(part_id),
-            ev: LedgerEvent::ForceCount(LocationId::clone(location_id)),
-        };
-        self.store.record_event(&ev)?;
-        self.store.update_count_cache(&ev);
-        Ok(AppEvents::ReloadData)
     }
 }
 

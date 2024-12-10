@@ -149,7 +149,6 @@ fn main() -> anyhow::Result<()> {
                 track: CountTracking::Count,
                 consumable: false,
                 unit: CountUnit::Piece,
-                piece_size: 1,
             },
             content: csv_part.description,
         };

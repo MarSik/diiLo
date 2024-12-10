@@ -117,11 +117,6 @@ pub struct PartMetadata {
     // The smallest counting unit, pieces, meters, cm, mm, liters, ..
     #[serde(default)]
     pub unit: CountUnit,
-
-    // The piece size on delivery
-    // Used only when track is set to Pieces
-    #[serde(default)]
-    pub piece_size: usize,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -244,7 +239,7 @@ impl PartId {
         }
     }
 
-    pub fn simple(&self) -> Self {
+    pub fn to_simple(&self) -> Self {
         Self::Simple(self.part_type().clone())
     }
 
@@ -268,6 +263,8 @@ impl PartId {
         }
     }
 
+    // Create ID with sizing information if the current ID supports sizing
+    // This updates Piece sizing, but keeps other ID types intact
     pub fn maybe_sized(&self, l: usize) -> Self {
         match self {
             PartId::Simple(_) => self.clone(),
@@ -281,6 +278,27 @@ impl PartId {
             self.piece(l)
         } else {
             self.clone()
+        }
+    }
+
+    pub(crate) fn to_piece(&self, default: usize) -> PartId {
+        match self {
+            PartId::Simple(rc) => PartId::Piece(rc.clone(), default),
+            PartId::Piece(rc, 0) => PartId::Piece(rc.clone(), default),
+            PartId::Piece(_, _) => self.clone(),
+            PartId::Unique(rc, _) => PartId::Piece(rc.clone(), default),
+        }
+    }
+
+    pub(crate) fn to_unique(&self) -> PartId {
+        match self {
+            PartId::Simple(_) => {
+                todo!("No way to generate proper serial number for new unique part")
+            }
+            PartId::Piece(_, _) => {
+                todo!("No way to generate proper serial number for new unique part")
+            }
+            PartId::Unique(_, _) => self.clone(),
         }
     }
 }

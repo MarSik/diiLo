@@ -204,8 +204,13 @@ impl Widget for &App {
         };
 
         let s_copy_action = self.f5_action();
-        let s_move_action = self.f6_action();
         let s_del_action = self.f8_action();
+
+        let s_move_action = if self.view.escape_keys == EscMode::FKeysControl {
+            self.ctrl_f6_action()
+        } else {
+            self.f6_action()
+        };
 
         let actions = [
             "filter",
@@ -553,6 +558,7 @@ impl App {
             super::ActionVariant::Delete => render_icons::DELETE,
             super::ActionVariant::ForceCount => render_icons::FORCE_COUNT,
             super::ActionVariant::ForceCountLocal => render_icons::FORCE_COUNT,
+            super::ActionVariant::SplitLocal => render_icons::SPLIT,
         };
 
         if self.view.action_count_dialog_action.countable() {

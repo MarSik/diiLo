@@ -39,7 +39,7 @@ impl App {
         let event_to = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part: part.simple(),
+            part: part.to_simple(),
             ev,
         };
 
@@ -71,7 +71,7 @@ impl App {
         let event_to = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part: part.simple(),
+            part: part.to_simple(),
             ev: LedgerEvent::OrderFrom(destination),
         };
 
@@ -107,7 +107,7 @@ impl App {
         let event_from = LedgerEntry {
             t: Local::now().fixed_offset(),
             count: self.view.action_count_dialog_count,
-            part: part.simple(),
+            part: part.to_simple(),
             ev: LedgerEvent::DeliverFrom(source),
         };
         let event_to = LedgerEntry {
@@ -148,6 +148,7 @@ impl App {
                 part_item,
                 Some(self.panel_item_from_id(location_id)?),
                 count,
+                part_id.piece_size(),
             );
         } else if let Some(project_id) = ad.project() {
             let count = self
@@ -159,6 +160,7 @@ impl App {
                 part_item,
                 Some(self.panel_item_from_id(project_id)?),
                 count,
+                part_id.piece_size(),
             );
         } else if let Some(source_id) = ad.source() {
             let count = self
@@ -170,6 +172,7 @@ impl App {
                 part_item,
                 Some(self.panel_item_from_id(&source_id.into())?),
                 count,
+                1, // Shops usually do not sell pieces, order and cut later
             );
         } else {
             return Err(AppError::BadOperationContext);

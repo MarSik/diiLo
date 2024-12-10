@@ -72,3 +72,5 @@ pub const DELETE: Fixed6x3Icon = Fixed6x3Icon([" ▚  ▞ ", "  ▐▌  ", " ▞
 pub const REQUIRE: Fixed6x3Icon = Fixed6x3Icon(["▛▀▀▀▀▜", "▌ n? ▐", "▙▄▄▄▄▟"]);
 
 pub const FORCE_COUNT: Fixed6x3Icon = Fixed6x3Icon(["▛▀▀▀▀▜", "!!!!!!", "▙▄▄▄▄▟"]);
+
+pub const SPLIT: Fixed6x3Icon = Fixed6x3Icon(["▛▜  ▛▜", "▌▐▐▌▌▐", "▙▟  ▙▟"]);
