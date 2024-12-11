@@ -274,17 +274,37 @@ impl Ord for PanelItem {
         let serial_ord = self
             .id
             .as_ref()
-            .map(PartId::serial)
-            .cmp(&b.id.as_ref().map(PartId::serial));
+            .and_then(PartId::serial)
+            .cmp(&b.id.as_ref().and_then(PartId::serial));
         if serial_ord.is_ne() {
             return serial_ord;
         }
 
-        // If name and id is the same, order by piece size
-        self.id
-            .as_ref()
-            .and_then(PartId::piece_size_option)
-            .cmp(&b.id.as_ref().and_then(PartId::piece_size_option))
+        // If name and id is the same, order by piece size,
+        // part with no size defined at all should be first
+        let size_ord = match (
+            self.id.as_ref().and_then(PartId::piece_size_option),
+            b.id.as_ref().and_then(PartId::piece_size_option),
+        ) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (Some(a), Some(b)) => a.cmp(&b),
+        };
+        if size_ord.is_ne() {
+            return size_ord;
+        }
+
+        // Size of the item is the same, lets order by the size of the parent id
+        match (
+            self.parent_id.as_ref().and_then(PartId::piece_size_option),
+            b.parent_id.as_ref().and_then(PartId::piece_size_option),
+        ) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (Some(a), Some(b)) => a.cmp(&b),
+        }
     }
 }
 

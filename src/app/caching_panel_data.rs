@@ -75,8 +75,8 @@ impl CachingPanelData {
         }
 
         let mut parts: Vec<PanelItem> = loader();
-
         parts.sort();
+
         let mut out = vec![PanelItem::new("<Back>", None, "", "", None, None)];
         out.extend(parts);
 
