@@ -530,6 +530,7 @@ impl App {
             .ok_or(AppError::NoSuchObject(p_id.to_string()))?;
         Ok(PanelItem {
             name: obj.metadata.name.clone(),
+            subname: p_id.subname(),
             summary: obj.metadata.summary.clone(),
             data: String::with_capacity(0),
             id: Some(PartId::clone(p_id)),
@@ -747,7 +748,7 @@ impl App {
                 .all_label_keys()
                 .iter()
                 .filter(|(k, _)| k.to_lowercase().starts_with(&query))
-                .map(|(k, _)| PanelItem::new(k, "", "", Some(&k.into()), None))
+                .map(|(k, _)| PanelItem::new(k, None, "", "", Some(&k.into()), None))
                 .collect();
             return;
         }
@@ -763,7 +764,7 @@ impl App {
                         .all_label_values(label_key)
                         .iter()
                         .filter(|(v, _)| v.to_lowercase().starts_with(&query))
-                        .map(|(v, _)| PanelItem::new(v, "", "", Some(&v.into()), None))
+                        .map(|(v, _)| PanelItem::new(v, None, "", "", Some(&v.into()), None))
                         .collect();
                     return;
                 }
@@ -806,6 +807,7 @@ impl App {
             .map(|(_, p)| {
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     "",
                     // Provide ID with pieces type as a hint to the renderer and cache when needed

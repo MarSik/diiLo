@@ -17,6 +17,7 @@ impl App {
         let label = label_ad.label().ok_or(AppError::BadOperationContext)?;
         let label_item = PanelItem {
             name: format!("{}: {}", label.0, label.1),
+            subname: None,
             summary: String::with_capacity(0),
             data: String::with_capacity(0),
             id: None,

@@ -223,7 +223,7 @@ pub(crate) struct LedgerEntryDto {
 
 pub type PartTypeId = Rc<str>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum PartId {
     Simple(PartTypeId),
     Piece(PartTypeId, usize), // .1 is piece counter and must represent the size of the piece at least per .0 type
@@ -260,6 +260,14 @@ impl PartId {
             PartId::Simple(_) => None,
             PartId::Piece(_, s) => Some(*s),
             PartId::Unique(_, _) => None,
+        }
+    }
+
+    pub fn subname(&self) -> Option<String> {
+        match self {
+            PartId::Simple(_) => None,
+            PartId::Piece(_, s) => Some(s.to_string()),
+            PartId::Unique(_, s) => Some(s.to_string()),
         }
     }
 

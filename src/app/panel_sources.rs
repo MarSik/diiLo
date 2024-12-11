@@ -48,6 +48,7 @@ impl PanelSourceSelection {
 
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     &data,
                     Some(&p_id.into()),
@@ -170,9 +171,16 @@ impl PanelSourcesMenu {
         Self {
             parent,
             data: vec![
-                PanelItem::new("<Back>", "", "", None, None),
-                PanelItem::new("Parts", "show parts delivered from source", "", None, None),
-                PanelItem::new("Orders", "show orders", "", None, None),
+                PanelItem::new("<Back>", None, "", "", None, None),
+                PanelItem::new(
+                    "Parts",
+                    None,
+                    "show parts delivered from source",
+                    "",
+                    None,
+                    None,
+                ),
+                PanelItem::new("Orders", None, "show orders", "", None, None),
             ],
             parent_idx,
             source_id: source_id.clone(),
@@ -310,16 +318,18 @@ impl PanelPartFromSourcesSelection {
                     count.count().to_string()
                 };
 
-                let name = match count.part() {
-                    PartId::Simple(_) => p.metadata.name.to_string(),
-                    PartId::Piece(_, s) => {
-                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
-                    }
-                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                let subname = match count.part() {
+                    PartId::Simple(_) => None,
+                    PartId::Piece(_, _) => count
+                        .part()
+                        .subname()
+                        .map(|s| format!("{}{}", s, p.metadata.unit)),
+                    PartId::Unique(_, _) => count.part().subname(),
                 };
 
                 PanelItem::new(
-                    &name,
+                    &p.metadata.name,
+                    subname,
                     &p.metadata.summary,
                     &data,
                     Some(&p.id.as_ref().into()),
@@ -460,16 +470,18 @@ impl PanelOrderedFromSourcesSelection {
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
-                let name = match count.part() {
-                    PartId::Simple(_) => p.metadata.name.to_string(),
-                    PartId::Piece(_, s) => {
-                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
-                    }
-                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                let subname = match count.part() {
+                    PartId::Simple(_) => None,
+                    PartId::Piece(_, _) => count
+                        .part()
+                        .subname()
+                        .map(|s| format!("{}{}", s, p.metadata.unit)),
+                    PartId::Unique(_, _) => count.part().subname(),
                 };
 
                 PanelItem::new(
-                    &name,
+                    &p.metadata.name,
+                    subname,
                     &p.metadata.summary,
                     &data,
                     Some(&p.id.as_ref().into()),

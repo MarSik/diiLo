@@ -1,6 +1,6 @@
 use crate::{
     app::model::PanelItem,
-    store::{cache::CountCacheSum, filter::Query, LocationId, PartId, Store},
+    store::{cache::CountCacheSum, filter::Query, types::CountUnit, LocationId, PartId, Store},
 };
 
 use super::{
@@ -40,6 +40,7 @@ impl PanelLocationSelection {
                 let count = count.count();
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     &count.to_string(),
                     Some(&p_id.into()),
@@ -182,16 +183,24 @@ impl PanelLocationPartsSelection {
                     count.count().to_string()
                 };
 
-                let name = match count.part() {
-                    PartId::Simple(_) => p.metadata.name.to_string(),
-                    PartId::Piece(_, s) => {
-                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
-                    }
-                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                let part = store.part_by_id(count.part().part_type());
+
+                let subname = match count.part() {
+                    PartId::Simple(_) => None,
+                    PartId::Piece(_, _) => count.part().subname().map(|s| {
+                        format!(
+                            "{}{}",
+                            s,
+                            part.map(|part| part.metadata.unit)
+                                .unwrap_or(CountUnit::Piece)
+                        )
+                    }),
+                    PartId::Unique(_, _) => count.part().subname(),
                 };
 
                 PanelItem::new(
-                    &name,
+                    &p.metadata.name,
+                    subname,
                     &p.metadata.summary,
                     &data,
                     Some(count.part()),

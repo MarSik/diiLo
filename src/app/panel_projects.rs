@@ -41,6 +41,7 @@ impl PanelProjectSelection {
                 // TODO How to list projects based on types with serial numbers?
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     &sum_count.to_string(),
                     Some(&p_id.into()),
@@ -183,16 +184,18 @@ impl PanelProjectPartsSelection {
                     count.count().to_string()
                 };
 
-                let name = match count.part() {
-                    PartId::Simple(_) => p.metadata.name.to_string(),
-                    PartId::Piece(_, s) => {
-                        format!("{} [{}{}]", p.metadata.name, s, p.metadata.unit)
-                    }
-                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                let subname = match count.part() {
+                    PartId::Simple(_) => None,
+                    PartId::Piece(_, _) => count
+                        .part()
+                        .subname()
+                        .map(|s| format!("{}{}", s, p.metadata.unit)),
+                    PartId::Unique(_, _) => count.part().subname(),
                 };
 
                 PanelItem::new(
-                    &name,
+                    &p.metadata.name,
+                    subname,
                     &p.metadata.summary,
                     &data,
                     Some(count.part()),

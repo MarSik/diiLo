@@ -234,9 +234,12 @@ impl PanelContent {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, Eq, PartialEq, PartialOrd)]
 pub(super) struct PanelItem {
+    // Real name
     pub name: String,
+    // Distinquishing name - piece length, serial number, ...
+    pub subname: Option<String>,
     pub summary: String,
     pub data: String,
     pub parent_id: Option<PartId>,
@@ -330,6 +333,7 @@ impl ActionDescriptor {
 impl PanelItem {
     pub fn new(
         name: &str,
+        subname: Option<String>,
         summary: &str,
         data: &str,
         id: Option<&PartId>,
@@ -337,6 +341,7 @@ impl PanelItem {
     ) -> Self {
         Self {
             name: name.to_string(),
+            subname,
             summary: summary.to_string(),
             data: data.to_string(),
             id: id.cloned(),

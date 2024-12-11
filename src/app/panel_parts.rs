@@ -38,6 +38,7 @@ impl PanelPartSelection {
                 let count = count.added as isize - count.removed as isize;
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     &count.to_string(),
                     Some(&p_id.into()),
@@ -186,20 +187,22 @@ impl PanelPartLocationsSelection {
 
                 let part = store.part_by_id(&self.part_type_id);
 
-                let name = match count.part() {
-                    PartId::Simple(_) => p.metadata.name.to_string(),
-                    PartId::Piece(_, s) => format!(
-                        "{} [{}{}]",
-                        p.metadata.name,
-                        s,
-                        part.map(|part| part.metadata.unit)
-                            .unwrap_or(CountUnit::Piece)
-                    ),
-                    PartId::Unique(_, serial) => format!("{} [{}]", p.metadata.name, serial),
+                let subname = match count.part() {
+                    PartId::Simple(_) => None,
+                    PartId::Piece(_, _) => count.part().subname().map(|s| {
+                        format!(
+                            "{}{}",
+                            s,
+                            part.map(|part| part.metadata.unit)
+                                .unwrap_or(CountUnit::Piece)
+                        )
+                    }),
+                    PartId::Unique(_, _) => count.part().subname(),
                 };
 
                 PanelItem::new(
-                    &name,
+                    &p.metadata.name,
+                    subname,
                     &p.metadata.summary,
                     &data,
                     Some(count.location()),

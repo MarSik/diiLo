@@ -471,15 +471,36 @@ impl App {
         let table = Table::new(
             content.items(&self.store).into_iter().map(|v| {
                 let name_length = v.name.char_indices().count();
+                let subname_length = v
+                    .subname
+                    .as_ref()
+                    .map(|s| s.char_indices().count() + 3)
+                    .unwrap_or(0);
                 let data_length = v.data.char_indices().count();
+
+                let name_length = if (name_length + subname_length + data_length + 4) > cell_length
+                {
+                    cell_length.saturating_sub(subname_length + data_length + 4)
+                } else {
+                    name_length
+                };
+
                 let summary_length = v.summary.char_indices().count();
-                let summary_length =
-                    summary_length.min(cell_length.saturating_sub(name_length + 4 + data_length));
-                let padding_length =
-                    cell_length.saturating_sub(name_length + data_length + summary_length + 4);
+                let summary_length = summary_length.min(
+                    cell_length.saturating_sub(name_length + subname_length + 4 + data_length),
+                );
+                let padding_length = cell_length.saturating_sub(
+                    name_length + subname_length + data_length + summary_length + 4,
+                );
                 let padding = " ".repeat(padding_length);
 
                 // Split according to UTF-8 character boundaries
+                let name_split = v
+                    .name
+                    .char_indices()
+                    .nth(name_length)
+                    .map_or_else(|| v.name.len(), |(index, _)| index);
+
                 let summary_split = v
                     .summary
                     .char_indices()
@@ -487,8 +508,13 @@ impl App {
                     .map_or_else(|| v.summary.len(), |(index, _)| index);
 
                 let line = Line::from(vec![
-                    v.name.into(),
-                    "  ".dark_gray(),
+                    v.name[..name_split].to_string().into(),
+                    " ".dark_gray(),
+                    v.subname
+                        .map(|s| format!("[{}] ", s))
+                        .unwrap_or(String::with_capacity(0))
+                        .into(),
+                    " ".dark_gray(),
                     v.summary[..summary_split].to_string().dark_gray(),
                     padding.into(),
                     "  ".dark_gray(),

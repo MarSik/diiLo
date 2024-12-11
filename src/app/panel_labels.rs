@@ -34,6 +34,7 @@ impl PanelLabelSelection {
             .map(|(label_key, count)| {
                 PanelItem::new(
                     label_key,
+                    None,
                     "",
                     &count.to_string(),
                     Some(&label_key.as_str().into()),
@@ -180,6 +181,7 @@ impl PanelLabelValueSelection {
             .map(|(label_value, count)| {
                 PanelItem::new(
                     label_value,
+                    None,
                     "",
                     &count.to_string(),
                     Some(&label_value.as_str().into()),
@@ -330,6 +332,7 @@ impl PanelPartByLabelSelection {
                 let c = store.count_by_part_type(&p.id).sum();
                 PanelItem::new(
                     &p.metadata.name,
+                    None,
                     &p.metadata.summary,
                     &c.count().to_string(),
                     Some(&p.id.as_ref().into()),

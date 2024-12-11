@@ -20,11 +20,18 @@ impl PanelTypeSelection {
         Self {
             name: name.to_string(),
             data: vec![
-                PanelItem::new("Parts", "show all parts", "", None, None),
-                PanelItem::new("Projects", "show all projects", "", None, None),
-                PanelItem::new("Labels", "filter by label", "", None, None),
-                PanelItem::new("Locations", "show all storage locations", "", None, None),
-                PanelItem::new("Sources", "part sources and orders", "", None, None),
+                PanelItem::new("Parts", None, "show all parts", "", None, None),
+                PanelItem::new("Projects", None, "show all projects", "", None, None),
+                PanelItem::new("Labels", None, "filter by label", "", None, None),
+                PanelItem::new(
+                    "Locations",
+                    None,
+                    "show all storage locations",
+                    "",
+                    None,
+                    None,
+                ),
+                PanelItem::new("Sources", None, "part sources and orders", "", None, None),
             ],
         }
     }
