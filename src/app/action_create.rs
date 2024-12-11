@@ -290,10 +290,13 @@ impl App {
 
         if let CreateMode::Hint(hint) = self.view.create_idx {
             if let Some(location_id) = &self.view.create_hints[hint].id {
-                let part_id = action_desc.part().ok_or(AppError::BadOperationContext)?;
+                let part_id = action_desc
+                    .part()
+                    .map(PartId::to_simple)
+                    .ok_or(AppError::BadOperationContext)?;
 
                 // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(part_id, location_id);
+                let count = self.store.count_by_part_location(&part_id, location_id);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -306,7 +309,7 @@ impl App {
                 }
 
                 self.store
-                    .show_empty_in_location(part_id, location_id, true);
+                    .show_empty_in_location(&part_id, location_id, true);
                 return Ok(AppEvents::ReloadDataSelect(
                     self.store
                         .part_by_id(location_id.part_type())
@@ -322,9 +325,9 @@ impl App {
                     .insert(crate::store::ObjectType::Location);
             })?;
 
-            if let Some(part_id) = action_desc.part() {
+            if let Some(part_id) = action_desc.part().map(PartId::to_simple) {
                 // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(part_id, &location_id);
+                let count = self.store.count_by_part_location(&part_id, &location_id);
                 if count.required() != 0 {
                     let ev = LedgerEntry {
                         t: Local::now().fixed_offset(),
@@ -337,7 +340,7 @@ impl App {
                 }
 
                 self.store
-                    .show_empty_in_location(part_id, &location_id, true);
+                    .show_empty_in_location(&part_id, &location_id, true);
             }
 
             return Ok(AppEvents::ReloadDataSelect(
