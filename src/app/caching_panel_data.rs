@@ -76,7 +76,7 @@ impl CachingPanelData {
 
         let mut parts: Vec<PanelItem> = loader();
 
-        parts.sort_by_key(|f| f.name.to_lowercase());
+        parts.sort();
         let mut out = vec![PanelItem::new("<Back>", None, "", "", None, None)];
         out.extend(parts);
 
@@ -146,9 +146,13 @@ impl CachingPanelData {
             return None;
         }
         let cache = cache.as_ref().unwrap();
-        match cache.as_slice()[1..]
-            .binary_search_by_key(&name.to_lowercase(), |v| v.name.to_lowercase())
-        {
+
+        let search_panel_item = PanelItem {
+            name: name.to_string(),
+            ..Default::default()
+        };
+
+        match cache.as_slice()[1..].binary_search(&search_panel_item) {
             Ok(idx) => Some(idx + 1),
             Err(idx) => Some(idx + 1),
         }

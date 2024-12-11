@@ -234,7 +234,7 @@ impl PanelContent {
     }
 }
 
-#[derive(Debug, Clone, Ord, Eq, PartialEq, PartialOrd)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub(super) struct PanelItem {
     // Real name
     pub name: String,
@@ -244,6 +244,48 @@ pub(super) struct PanelItem {
     pub data: String,
     pub parent_id: Option<PartId>,
     pub id: Option<PartId>,
+}
+
+impl PartialOrd for PanelItem {
+    fn partial_cmp(&self, b: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(b))
+    }
+}
+
+impl Ord for PanelItem {
+    fn cmp(&self, b: &Self) -> std::cmp::Ordering {
+        // First order by lowercase name
+        let name_ord = self.name.to_lowercase().cmp(&b.name.to_lowercase());
+        if name_ord.is_ne() {
+            return name_ord;
+        }
+
+        // If name is the same, order by type id
+        let id_ord = self
+            .id
+            .as_ref()
+            .map(PartId::part_type)
+            .cmp(&b.id.as_ref().map(PartId::part_type));
+        if id_ord.is_ne() {
+            return id_ord;
+        }
+
+        // If name and type is the same, order by serial
+        let serial_ord = self
+            .id
+            .as_ref()
+            .map(PartId::serial)
+            .cmp(&b.id.as_ref().map(PartId::serial));
+        if serial_ord.is_ne() {
+            return serial_ord;
+        }
+
+        // If name and id is the same, order by piece size
+        self.id
+            .as_ref()
+            .and_then(PartId::piece_size_option)
+            .cmp(&b.id.as_ref().and_then(PartId::piece_size_option))
+    }
 }
 
 #[derive(Clone, Debug, Default)]
