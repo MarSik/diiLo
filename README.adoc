@@ -9,18 +9,29 @@ CAUTION: *This project is not production ready, use at your own risk and backup 
 
 == Goals
 
-Here are the cornerstones of the project that should be used when in doubt about a feature or implementation.
+* The intended use case for this tool is a small electronic lab, a RC modeller's workshop or similar.
+* Few hundreds to thousands of items in dozen locations or boxes.
+* A workflow where the tool just helps with finding the right piece for the current project at hand and the inventory tracking accuracy is secondary to the ease of use.
+* Updating the digital database happens in bulk, usually at the end of a session based on paper notes. Part counts can get a bit out of sync, but should be easy to fix.
 
-* Human readable and editable data storage format
+For these reasons I defined the cornerstones of the project that should be used when in doubt about a feature or implementation:
+
+* Easy and quick way to enter data, movements and deliveries.
+* No hard constraints preventing actions - the tool should adapt to the reality, not the other way around.
+* Easy way to fix counts or placements based on real world situation.
+* Keyboard friendly navigation. Can be used over ssh or other terminal solution.
+* Human readable and editable data storage format:
 ** both the raw storage itself,
-** and the semantics, minimize typing and complex string and id related relationships
-* Keyboard friendly navigation
+** and the semantics, minimize typing and complex string and id related relationships.
+** Data should be trivial to backup and restore.
+** Data should be trivial to synchronize across machines using some off-the-shelf solution (Syncthing, Dropbox, Nextcloud) and conflicts should be reasonably easy to fix.
 
 == Why diiLo
 
-* dílo in Czech means work, accomplishment
-* it is an ASCII art - a warehouse forklift
-* it is easy to type on a qwerty keyboard, most of the letters are clustered together
+* Dílo in Czech means work, accomplishment.
+* It is an ASCII art - a warehouse forklift.
+* It is easy to type on a qwerty keyboard, most of the letters are clustered together.
+* It started as a play on words dual, inventory, II (roman numeral 2), interface, ledger.
 
 == Data storage
 
@@ -55,6 +66,15 @@ image::docs/images/diilo-panel-search.png[Quick search]
 
 .Request amount of parts to be required in location
 image::docs/images/diilo-request-count.png[Amount dialog]
+
+.Delete part request
+image::docs/images/diilo-remove.png[Remove a requirement]
+
+.Split a cable into pieces
+image::docs/images/diilo-piece-split.png[Split into pieces]
+
+.Use a part in project
+image::docs/images/diilo-use-part.png[Use a part in project]
 
 == Building
 
