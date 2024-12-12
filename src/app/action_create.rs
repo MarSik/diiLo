@@ -270,19 +270,6 @@ impl App {
                     .location()
                     .ok_or(AppError::BadOperationContext)?;
 
-                // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(part_id, location);
-                if count.required() != 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireIn(location.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store.show_empty_in_location(part_id, location, true);
                 return Ok(AppEvents::ReloadDataSelectByPartId(
                     part_id.clone(),
@@ -296,19 +283,6 @@ impl App {
             })?;
 
             if let Some(location) = action_desc.location() {
-                // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(&part_id, location);
-                if count.required() != 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireIn(location.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store.show_empty_in_location(&part_id, location, true);
             }
 
@@ -333,19 +307,6 @@ impl App {
                     .map(PartId::to_simple)
                     .ok_or(AppError::BadOperationContext)?;
 
-                // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(&part_id, location_id);
-                if count.required() != 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireIn(location_id.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store
                     .show_empty_in_location(&part_id, location_id, true);
                 return Ok(AppEvents::ReloadDataSelectByPartId(
@@ -363,19 +324,6 @@ impl App {
             })?;
 
             if let Some(part_id) = action_desc.part().map(PartId::to_simple) {
-                // Update requirement to 1 if not set
-                let count = self.store.count_by_part_location(&part_id, &location_id);
-                if count.required() != 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireIn(location_id.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store
                     .show_empty_in_location(&part_id, &location_id, true);
             }
@@ -433,19 +381,6 @@ impl App {
             if let Some(part_id) = &self.view.create_hints[hint].id {
                 let project_id = action_desc.project().ok_or(AppError::BadOperationContext)?;
 
-                // Update order to 1 if not set
-                let count = self.store.count_by_part_project(part_id, project_id);
-                if count.required() == 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireInProject(project_id.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store.show_empty_in_project(part_id, project_id, true);
                 return Ok(AppEvents::ReloadDataSelectByPartId(
                     part_id.clone(),
@@ -459,19 +394,6 @@ impl App {
             })?;
 
             if let Some(project_id) = action_desc.project() {
-                // Update order to 1 if not set
-                let count = self.store.count_by_part_project(&part_id, project_id);
-                if count.required() == 0 {
-                    let ev = LedgerEntry {
-                        t: Local::now().fixed_offset(),
-                        count: 1,
-                        part: part_id.clone(),
-                        ev: LedgerEvent::RequireInProject(project_id.clone()),
-                    };
-                    self.store.record_event(&ev)?;
-                    self.store.update_count_cache(&ev);
-                }
-
                 self.store.show_empty_in_project(&part_id, project_id, true);
             }
 
