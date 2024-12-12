@@ -400,12 +400,35 @@ impl Store {
                 ));
             }
             LedgerEvent::RequireIn(location) => {
+                let count = self.count_cache.get_count(source_part_id, location);
                 self.count_cache
-                    .update_count(source_part_id, location, NONE, NONE, SET(e.count));
+                    .update_count(source_part_id, location, SET(0), SET(0), SET(0));
+                self.count_cache.show_empty(source_part_id, location, false);
+                self.count_cache.update_count(
+                    &store_part_id,
+                    location,
+                    SET(count.added()),
+                    SET(count.removed()),
+                    SET(e.count),
+                );
+                self.count_cache
+                    .show_empty(&store_part_id, location, count.show_empty());
             }
             LedgerEvent::RequireInProject(project) => {
+                let count = self.project_cache.get_count(source_part_id, project);
                 self.project_cache
-                    .update_count(&e.part, project, NONE, NONE, SET(e.count));
+                    .update_count(source_part_id, project, SET(0), SET(0), SET(0));
+                self.project_cache
+                    .show_empty(source_part_id, project, false);
+                self.project_cache.update_count(
+                    &store_part_id,
+                    project,
+                    SET(count.added()),
+                    SET(count.removed()),
+                    SET(e.count),
+                );
+                self.project_cache
+                    .show_empty(&store_part_id, project, count.show_empty());
             }
             LedgerEvent::OrderFrom(source) => {
                 // Order of type does not specify an exact part or piece, just the type
@@ -430,7 +453,7 @@ impl Store {
             LedgerEvent::DeliverFrom(source) => {
                 // Delivery could contain a serial number, keep it
                 self.source_cache.update_count(
-                    source_part_id,
+                    &store_part_id,
                     &source.into(),
                     ADD(e.count),
                     NONE,
