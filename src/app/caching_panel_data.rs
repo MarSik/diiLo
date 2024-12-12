@@ -41,9 +41,12 @@ impl ParentPanel {
 // Reload panel data and return the new index that is equivalent to the item_idx before
 // the reload.
 pub fn panel_reload(panel: &mut Box<dyn PanelData>, item_idx: usize, store: &Store) -> usize {
-    let item_name = panel.item_name(item_idx, store);
+    let item = panel.item(item_idx, store);
     panel.reload(store);
-    let new_idx = panel.item_idx(&item_name, store).unwrap_or(0);
+    let new_idx = panel
+        .item_idx_by_display_id(item.display_id(), store)
+        .or(panel.item_idx(&item.name, store))
+        .unwrap_or(0);
 
     // The item_idx can return an id after the last element.
     // Make sure we catch that.

@@ -1,4 +1,8 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    hash::{DefaultHasher, Hasher},
+    rc::Rc,
+};
 
 use crate::store::{filter::Query, LocationId, PartId, SourceId, Store};
 
@@ -53,9 +57,6 @@ pub(super) trait PanelData: std::fmt::Debug {
     // Item summary
     fn item_summary(&self, idx: usize, store: &Store) -> String;
 
-    // Item name
-    fn item_name(&self, idx: usize, store: &Store) -> String;
-
     // Item count
     fn len(&self, store: &Store) -> usize;
 
@@ -68,13 +69,49 @@ pub(super) trait PanelData: std::fmt::Debug {
     // Get action descriptor of the selected item
     fn actionable_objects(&self, idx: usize, store: &Store) -> Option<ActionDescriptor>;
 
-    // Find the view index of part with name
+    // Find the view index of the first PanelItem with name
     // When no such part exists, find the first name that is alphabetically
     // higher than provided parameter.
     // Warning: This can return an index after the last element = out of bounds of the possibly
     //          cached values.
     // Return None when the content is empty.
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize>;
+
+    // Find the view index of the first PanelItem with matching display ID
+    // By default this is O(n) and scans through all PanelItems, because
+    // there is no assumption about how to do this faster
+    // The implementation can override this if it knows a faster method.
+    // This is mostly used for re-selecting the same item after panel reload.
+    fn item_idx_by_display_id(
+        &self,
+        display_id: PanelItemDisplayId,
+        store: &Store,
+    ) -> Option<usize> {
+        for i in 0..self.len(store) {
+            let item = self.item(i, store);
+            if item.display_id() == display_id {
+                return Some(i);
+            }
+        }
+
+        None
+    }
+
+    // Find the view index of the first PanelItem with matching PartId
+    // By default this is O(n) and scans through all PanelItems, because
+    // there is no assumption about how to do this faster
+    // The implementation can override this if it knows a faster method.
+    // This is mostly used for selecting the newly created item in the view
+    fn item_idx_by_part_id(&self, part_id: &PartId, store: &Store) -> Option<usize> {
+        for i in 0..self.len(store) {
+            let item = self.item(i, store);
+            if item.id.as_ref().map_or(false, |id| id == part_id) {
+                return Some(i);
+            }
+        }
+
+        None
+    }
 
     // Return the filter status of this panel
     // It can signal that filter is not supported (and filter key should do nothing),
@@ -392,6 +429,8 @@ impl ActionDescriptor {
     }
 }
 
+pub type PanelItemDisplayId = u64;
+
 impl PanelItem {
     pub fn new(
         name: &str,
@@ -409,5 +448,62 @@ impl PanelItem {
             id: id.cloned(),
             parent_id: parent_id.cloned(),
         }
+    }
+
+    // This is a hash of certain fields that uniquely identify a PanelItem
+    // that points to the same part from the same source. It ignores the name
+    // and data fields though. So even after name, summary or counts are
+    // updated, the ID will still match.
+    // The number has not specified order.
+    pub fn display_id(&self) -> PanelItemDisplayId {
+        let mut h = DefaultHasher::new();
+
+        let id = self
+            .id
+            .as_ref()
+            .map(PartId::part_type)
+            .map(Rc::to_string)
+            .unwrap_or_default();
+        let id_serial = self
+            .id
+            .as_ref()
+            .and_then(PartId::serial)
+            .unwrap_or_default();
+        let id_size = self
+            .id
+            .as_ref()
+            .and_then(PartId::piece_size_option)
+            .unwrap_or_default();
+
+        let parent = self
+            .parent_id
+            .as_ref()
+            .map(PartId::part_type)
+            .map(Rc::to_string)
+            .unwrap_or_default();
+        let parent_serial = self
+            .parent_id
+            .as_ref()
+            .and_then(PartId::serial)
+            .unwrap_or_default();
+        let parent_size = self
+            .parent_id
+            .as_ref()
+            .and_then(PartId::piece_size_option)
+            .unwrap_or_default();
+
+        h.write_usize(id.len());
+        h.write(id.as_bytes());
+        h.write_usize(id_serial.len());
+        h.write(id_serial.as_bytes());
+        h.write_usize(id_size);
+
+        h.write_usize(parent.len());
+        h.write(parent.as_bytes());
+        h.write_usize(parent_serial.len());
+        h.write(parent_serial.as_bytes());
+        h.write_usize(parent_size);
+
+        h.finish()
     }
 }

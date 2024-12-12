@@ -120,11 +120,6 @@ impl PanelData for PanelPartSelection {
         self.cached.item_idx(id, || self.load_cache(store))
     }
 
-    fn item_name(&self, idx: usize, store: &Store) -> String {
-        let loader = || self.load_cache(store);
-        self.cached.item_name(idx, loader)
-    }
-
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         let loader = || self.load_cache(store);
         self.cached.item(idx, loader)
@@ -273,10 +268,6 @@ impl PanelData for PanelPartLocationsSelection {
 
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize> {
         self.cached.item_idx(name, || self.load_cache(store))
-    }
-
-    fn item_name(&self, idx: usize, store: &Store) -> String {
-        self.cached.item_name(idx, || self.load_cache(store))
     }
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {

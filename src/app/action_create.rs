@@ -47,7 +47,10 @@ impl App {
             }
         }
 
-        Ok(AppEvents::ReloadDataSelect(new_name))
+        Ok(AppEvents::ReloadDataSelectByPartId(
+            new_id.into(),
+            new_name.clone(),
+        ))
     }
 
     fn finish_create_part_w_label(&mut self) -> anyhow::Result<AppEvents> {
@@ -71,13 +74,10 @@ impl App {
 
             self.perform_add_label(&part_id, (label.0.clone(), label.1.clone()))?;
 
-            let name = self
-                .store
-                .part_by_id(part_id.part_type())
-                .map(|p| p.metadata.name.clone())
-                .ok_or(AppError::NoSuchObject(part_id.to_string()))?;
-
-            return Ok(AppEvents::ReloadDataSelect(name));
+            return Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
+            ));
         }
 
         Ok(AppEvents::Nop)
@@ -85,7 +85,13 @@ impl App {
 
     fn finish_create_source(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByPartId(
+                    id.clone(),
+                    self.view.create_hints[hint].name.clone(),
+                ),
+                None => AppEvents::Redraw,
+            })
         } else {
             // Enter on summary or name fields
             let part_id = self.create_object_from_dialog_data(|part| {
@@ -93,17 +99,22 @@ impl App {
             })?;
 
             self.update_status(&format!("Source {} was created.", part_id));
-            Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ))
         }
     }
 
     fn finish_create_project(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByPartId(
+                    id.clone(),
+                    self.view.create_hints[hint].name.clone(),
+                ),
+                None => AppEvents::Redraw,
+            })
         } else {
             // Enter on summary or name fields
             let part_id = self.create_object_from_dialog_data(|part| {
@@ -114,17 +125,19 @@ impl App {
             })?;
 
             self.update_status(&format!("Project {} was created.", part_id));
-            let name = self
-                .store
-                .part_by_id(part_id.part_type())
-                .map_or(part_id.to_string(), |p| p.metadata.name.clone());
-            Ok(AppEvents::ReloadDataSelect(name))
+            Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
+            ))
         }
     }
 
     fn finish_create_label(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByName(id.part_type().to_string()),
+                None => AppEvents::Redraw,
+            })
         } else {
             if self.view.create_name.value().trim().is_empty() {
                 self.update_status("Label cannot be empty.");
@@ -141,12 +154,29 @@ impl App {
                 .label_key()
                 .ok_or(AppError::BadOperationContext)?;
             self.store.add_label(label_key, &name);
-            Ok(AppEvents::ReloadDataSelect(name.clone()))
+            Ok(AppEvents::ReloadDataSelectByName(name))
         }
     }
 
     pub(super) fn finish_create(&mut self) -> anyhow::Result<AppEvents> {
         self.view.hide_create_dialog();
+
+        if let CreateMode::Hint(_) = self.view.create_idx {
+            // NOP, process hints later
+        } else if self.view.create_name.to_string().trim().is_empty() {
+            self.update_status("Name cannot be empty. Nothing was created.");
+            return Ok(AppEvents::Redraw);
+        } else if self
+            .view
+            .create_hints
+            .first()
+            .map(|hint| {
+                hint.name.to_lowercase() == self.view.create_name.to_string().trim().to_lowercase()
+            })
+            .unwrap_or(false)
+        {
+            self.view.create_idx = CreateMode::Hint(0);
+        }
 
         // This was an edit of existing part, just update it and return
         if let Some(part_id) = self.view.create_save_into.clone() {
@@ -182,7 +212,13 @@ impl App {
 
     fn finish_create_part(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByPartId(
+                    id.clone(),
+                    self.view.create_hints[hint].name.clone(),
+                ),
+                None => AppEvents::Redraw,
+            })
         } else {
             // Enter on summary or name fields
             let part_id = self.create_object_from_dialog_data(|part| {
@@ -190,17 +226,22 @@ impl App {
             })?;
 
             self.update_status(&format!("Part {} was created.", part_id));
-            Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ))
         }
     }
 
     fn finish_create_location(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByPartId(
+                    id.clone(),
+                    self.view.create_hints[hint].name.clone(),
+                ),
+                None => AppEvents::Redraw,
+            })
         } else {
             // Enter on summary or name fields
             let part_id = self.create_object_from_dialog_data(|part| {
@@ -210,10 +251,9 @@ impl App {
             })?;
 
             self.update_status(&format!("Location {} was created.", part_id));
-            Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ))
         }
     }
@@ -244,10 +284,9 @@ impl App {
                 }
 
                 self.store.show_empty_in_location(part_id, location, true);
-                return Ok(AppEvents::ReloadDataSelect(
-                    self.store
-                        .part_by_id(part_id.part_type())
-                        .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+                return Ok(AppEvents::ReloadDataSelectByPartId(
+                    part_id.clone(),
+                    self.view.create_hints[hint].name.clone(),
                 ));
             }
         } else {
@@ -273,10 +312,9 @@ impl App {
                 self.store.show_empty_in_location(&part_id, location, true);
             }
 
-            return Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            return Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ));
         }
         Ok(AppEvents::Nop)
@@ -310,10 +348,9 @@ impl App {
 
                 self.store
                     .show_empty_in_location(&part_id, location_id, true);
-                return Ok(AppEvents::ReloadDataSelect(
-                    self.store
-                        .part_by_id(location_id.part_type())
-                        .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
+                return Ok(AppEvents::ReloadDataSelectByPartId(
+                    location_id.clone(),
+                    self.view.create_hints[hint].name.clone(),
                 ));
             }
         } else {
@@ -343,10 +380,9 @@ impl App {
                     .show_empty_in_location(&part_id, &location_id, true);
             }
 
-            return Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(location_id.part_type())
-                    .map_or(location_id.to_string(), |p| p.metadata.name.clone()),
+            return Ok(AppEvents::ReloadDataSelectByPartId(
+                location_id,
+                self.view.create_name.to_string(),
             ));
         }
         Ok(AppEvents::Nop)
@@ -363,10 +399,9 @@ impl App {
                 let source = action_desc.source().ok_or(AppError::BadOperationContext)?;
                 self.store
                     .show_empty_in_source(part_id, &source.into(), true);
-                return Ok(AppEvents::ReloadDataSelect(
-                    self.store
-                        .part_by_id(part_id.part_type())
-                        .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+                return Ok(AppEvents::ReloadDataSelectByPartId(
+                    part_id.clone(),
+                    self.view.create_hints[hint].name.clone(),
                 ));
             }
         } else {
@@ -380,10 +415,9 @@ impl App {
                     .show_empty_in_source(&part_id, &source.into(), true);
             }
 
-            return Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            return Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ));
         }
         Ok(AppEvents::Nop)
@@ -413,10 +447,9 @@ impl App {
                 }
 
                 self.store.show_empty_in_project(part_id, project_id, true);
-                return Ok(AppEvents::ReloadDataSelect(
-                    self.store
-                        .part_by_id(part_id.part_type())
-                        .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+                return Ok(AppEvents::ReloadDataSelectByPartId(
+                    part_id.clone(),
+                    self.view.create_hints[hint].name.clone(),
                 ));
             }
         } else {
@@ -442,10 +475,9 @@ impl App {
                 self.store.show_empty_in_project(&part_id, project_id, true);
             }
 
-            return Ok(AppEvents::ReloadDataSelect(
-                self.store
-                    .part_by_id(part_id.part_type())
-                    .map_or(part_id.to_string(), |p| p.metadata.name.clone()),
+            return Ok(AppEvents::ReloadDataSelectByPartId(
+                part_id,
+                self.view.create_name.to_string(),
             ));
         }
         Ok(AppEvents::Nop)
@@ -453,7 +485,10 @@ impl App {
 
     fn finish_create_label_key(&mut self) -> anyhow::Result<AppEvents> {
         if let CreateMode::Hint(hint) = self.view.create_idx {
-            Ok(AppEvents::Select(self.view.create_hints[hint].name.clone()))
+            Ok(match &self.view.create_hints[hint].id {
+                Some(id) => AppEvents::ReloadDataSelectByName(id.part_type().to_string()),
+                None => AppEvents::Redraw,
+            })
         } else {
             if self.view.create_name.value().trim().is_empty() {
                 self.update_status("Label cannot be empty.");
@@ -462,7 +497,7 @@ impl App {
 
             let name = self.view.create_name.value().trim().to_string();
             self.store.add_label_key(&name);
-            Ok(AppEvents::ReloadDataSelect(name.clone()))
+            Ok(AppEvents::ReloadDataSelectByName(name))
         }
     }
 

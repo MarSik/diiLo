@@ -2,7 +2,9 @@ use std::{mem::replace, rc::Rc};
 
 use errs::AppError;
 use log::{debug, error, info};
-use model::{ActionDescriptor, EnterAction, Model, PanelContent, PanelData, PanelItem};
+use model::{
+    ActionDescriptor, EnterAction, Model, PanelContent, PanelData, PanelItem, PanelItemDisplayId,
+};
 use tui_input::Input;
 use view::{ActivePanel, DialogState, View};
 
@@ -54,9 +56,21 @@ pub enum AppEvents {
     // Reload data model
     ReloadData,
     // Reload data model and then select item on active panel
-    ReloadDataSelect(String),
+    // by id and when not found by name
+    ReloadDataSelectByDisplayId(PanelItemDisplayId, String),
+    // Reload data model and then select item on active panel
+    // by part id and when not found by name
+    ReloadDataSelectByPartId(PartId, String),
+    // Reload data model and then select item on active panel by name
+    ReloadDataSelectByName(String),
     // Select
-    Select(String),
+    // by id and when not found by name
+    SelectByDisplayId(PanelItemDisplayId, String),
+    // Select
+    // by id and when not found by name
+    SelectByPartId(PartId, String),
+    // Select by name
+    SelectByName(String),
     // Start editor and reload after edit is complete
     Edit(PartId),
     // Quit application
@@ -73,10 +87,10 @@ impl AppEvents {
 
     pub fn select_by_name(self, name: &str) -> AppEvents {
         match self {
-            AppEvents::ReloadData | AppEvents::ReloadDataSelect(_) => {
-                AppEvents::ReloadDataSelect(name.to_string())
+            AppEvents::ReloadData | AppEvents::ReloadDataSelectByDisplayId(_, _) => {
+                AppEvents::ReloadDataSelectByName(name.to_string())
             }
-            _ => AppEvents::Select(name.to_string()),
+            _ => AppEvents::SelectByName(name.to_string()),
         }
     }
 }
@@ -544,6 +558,12 @@ impl App {
             return Ok(AppEvents::Nop);
         }
 
+        // Source panel must return something actionable
+        let src = self
+            .get_active_panel_data()
+            .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+            .ok_or(AppError::BadOperationContext)?;
+
         match action {
             ActionVariant::None => return Ok(AppEvents::Nop),
             ActionVariant::Error => return Err(AppError::BadOperationContext),
@@ -554,7 +574,11 @@ impl App {
                     .and_then(|ad| ad.location().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
-                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst)?),
+                        src.part().map_or(1, PartId::piece_size),
+                    );
                 } else {
                     return Err(dst.unwrap_err());
                 }
@@ -598,21 +622,40 @@ impl App {
                     self.action_dialog_common_move(
                         action,
                         Some(self.panel_item_from_id(&dst.into())?),
+                        src.part().map_or(1, PartId::piece_size),
                     );
                 } else {
                     return Err(dst.unwrap_err());
                 }
             }
-            ActionVariant::RequirePart
-            | ActionVariant::DeliverPart
-            | ActionVariant::UnsolderPart => {
+            ActionVariant::RequirePart => {
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.location().or_else(|| ad.project()).cloned())
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst)?),
+                        src.part().map_or(1, PartId::piece_size),
+                    );
+                } else {
+                    return Err(dst.unwrap_err());
+                }
+            }
+            ActionVariant::DeliverPart | ActionVariant::UnsolderPart => {
                 let dst = self
                     .get_inactive_panel_data()
                     .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
                     .and_then(|ad| ad.location().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
-                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst)?),
+                        src.part().map_or(1, PartId::piece_size),
+                    );
                 } else {
                     return Err(dst.unwrap_err());
                 }
@@ -624,7 +667,11 @@ impl App {
                     .and_then(|ad| ad.project().cloned())
                     .ok_or(AppError::BadOperationContext);
                 if let Ok(dst) = dst {
-                    self.action_dialog_common_move(action, Some(self.panel_item_from_id(&dst)?));
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst)?),
+                        src.part().map_or(1, PartId::piece_size),
+                    );
                 } else {
                     return Err(dst.unwrap_err());
                 }
@@ -639,6 +686,7 @@ impl App {
                     self.action_dialog_common_move(
                         action,
                         Some(self.panel_item_from_id(&dst.into())?),
+                        src.part().map_or(1, PartId::piece_size),
                     );
                 } else {
                     return Err(dst.unwrap_err());
@@ -667,13 +715,18 @@ impl App {
         Ok(AppEvents::Redraw)
     }
 
-    fn action_dialog_common_move(&mut self, action: ActionVariant, destination: Option<PanelItem>) {
+    fn action_dialog_common_move(
+        &mut self,
+        action: ActionVariant,
+        destination: Option<PanelItem>,
+        step: usize,
+    ) {
         let source = self
             .get_active_panel_data()
             .item(self.view.get_active_panel_selection(), &self.store);
         // Step 1 - move operation can cut pieces
         self.view
-            .show_action_dialog(action, Some(source), destination, 0, 1);
+            .show_action_dialog(action, Some(source), destination, 0, step);
     }
 
     pub fn full_reload(&mut self) -> anyhow::Result<()> {
@@ -838,6 +891,48 @@ impl App {
         }
     }
 
+    pub fn select_item_by_display_id(&mut self, display_id: PanelItemDisplayId, name: &str) {
+        let len = self
+            .get_active_panel_data()
+            .len(&self.store)
+            .saturating_sub(1);
+
+        if let Some(idx) = self
+            .get_active_panel_data()
+            .item_idx_by_display_id(display_id, &self.store)
+        {
+            let idx = idx.min(self.get_active_panel_data().len(&self.store));
+            self.view.update_active_panel(|s| s.selected = idx.min(len));
+            return;
+        }
+
+        if let Some(idx) = self.get_active_panel_data().item_idx(name, &self.store) {
+            let idx = idx.min(self.get_active_panel_data().len(&self.store));
+            self.view.update_active_panel(|s| s.selected = idx.min(len));
+        }
+    }
+
+    pub fn select_item_by_part_id(&mut self, part_id: &PartId, name: &str) {
+        let len = self
+            .get_active_panel_data()
+            .len(&self.store)
+            .saturating_sub(1);
+
+        if let Some(idx) = self
+            .get_active_panel_data()
+            .item_idx_by_part_id(part_id, &self.store)
+        {
+            let idx = idx.min(self.get_active_panel_data().len(&self.store));
+            self.view.update_active_panel(|s| s.selected = idx.min(len));
+            return;
+        }
+
+        if let Some(idx) = self.get_active_panel_data().item_idx(name, &self.store) {
+            let idx = idx.min(self.get_active_panel_data().len(&self.store));
+            self.view.update_active_panel(|s| s.selected = idx.min(len));
+        }
+    }
+
     fn make_new_type_id(&self, name: &str) -> PartTypeId {
         let mut candidate = self.store.name_to_id(name).into();
         loop {
@@ -914,7 +1009,8 @@ impl App {
         let selected = if self.view.filter_selected.is_none() {
             self.view.filter_selected = Some(
                 self.get_active_panel_data()
-                    .item_name(self.view.get_active_panel_selection(), &self.store),
+                    .item(self.view.get_active_panel_selection(), &self.store)
+                    .display_id(),
             );
             self.view.filter_selected.as_ref().unwrap()
         } else {
@@ -937,7 +1033,13 @@ impl App {
                         // TODO report error back
                     }
                 }
-                AppEvents::Select(selected.to_string())
+                let name = self
+                    .model
+                    .panel_a
+                    .item(self.view.panel_a.selected, &self.store)
+                    .name
+                    .clone();
+                AppEvents::SelectByDisplayId(*selected, name)
             }
             ActivePanel::PanelB => {
                 // Replacing a non-copy structure member in a mutable self requires a workaround
@@ -954,7 +1056,13 @@ impl App {
                         // TODO report error back
                     }
                 }
-                AppEvents::Select(selected.to_string())
+                let name = self
+                    .model
+                    .panel_b
+                    .item(self.view.panel_b.selected, &self.store)
+                    .name
+                    .clone();
+                AppEvents::SelectByDisplayId(*selected, name)
             }
         }
     }
@@ -1006,10 +1114,6 @@ impl PanelData for TemporaryEmptyPanel {
     }
 
     fn item_idx(&self, _id: &str, _store: &Store) -> Option<usize> {
-        todo!()
-    }
-
-    fn item_name(&self, _idx: usize, _store: &Store) -> String {
         todo!()
     }
 

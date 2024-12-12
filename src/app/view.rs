@@ -2,7 +2,11 @@ use tui_input::{Input, InputRequest};
 
 use crate::store::PartId;
 
-use super::{kbd::EscMode, model::PanelItem, ActionVariant};
+use super::{
+    kbd::EscMode,
+    model::{PanelItem, PanelItemDisplayId},
+    ActionVariant,
+};
 
 #[derive(Debug, Default)]
 pub struct View {
@@ -39,7 +43,7 @@ pub struct View {
     pub(crate) alert_text: String,
     pub(crate) filter_dialog: DialogState,
     pub(crate) filter_query: Input,
-    pub(crate) filter_selected: Option<String>,
+    pub(crate) filter_selected: Option<PanelItemDisplayId>,
 }
 
 impl View {

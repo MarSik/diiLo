@@ -122,10 +122,6 @@ impl PanelData for PanelSourceSelection {
         self.cached.item_idx(name, || self.load_cache(store))
     }
 
-    fn item_name(&self, idx: usize, store: &Store) -> String {
-        self.cached.item_name(idx, || self.load_cache(store))
-    }
-
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
         self.cached.item(idx, || self.load_cache(store))
     }
@@ -262,10 +258,6 @@ impl PanelData for PanelSourcesMenu {
         }
     }
 
-    fn item_name(&self, idx: usize, _store: &Store) -> String {
-        self.data[idx].name.clone()
-    }
-
     fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data[idx].clone()
     }
@@ -400,10 +392,6 @@ impl PanelData for PanelPartFromSourcesSelection {
 
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize> {
         self.cached.item_idx(name, || self.load_cache(store))
-    }
-
-    fn item_name(&self, idx: usize, store: &Store) -> String {
-        self.cached.item_name(idx, || self.load_cache(store))
     }
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {
@@ -554,10 +542,6 @@ impl PanelData for PanelOrderedFromSourcesSelection {
 
     fn item_idx(&self, name: &str, store: &Store) -> Option<usize> {
         self.cached.item_idx(name, || self.load_cache(store))
-    }
-
-    fn item_name(&self, idx: usize, store: &Store) -> String {
-        self.cached.item_name(idx, || self.load_cache(store))
     }
 
     fn item(&self, idx: usize, store: &Store) -> PanelItem {

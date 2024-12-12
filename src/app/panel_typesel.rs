@@ -94,10 +94,6 @@ impl PanelData for PanelTypeSelection {
         None
     }
 
-    fn item_name(&self, idx: usize, _store: &Store) -> String {
-        self.data.get(idx).unwrap().name.clone()
-    }
-
     fn item(&self, idx: usize, _store: &Store) -> PanelItem {
         self.data.get(idx).unwrap().clone()
     }

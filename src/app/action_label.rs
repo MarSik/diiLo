@@ -127,10 +127,11 @@ impl App {
                 part.metadata.name
             ));
             self.store.store_part(&mut new_part)?;
+            let name = new_part.metadata.name.clone();
             self.store.insert_part_to_cache(new_part);
-            return Ok(AppEvents::ReloadData);
+            return Ok(AppEvents::ReloadDataSelectByPartId(part_id.clone(), name));
         }
 
-        Ok(AppEvents::Nop)
+        Ok(AppEvents::Redraw)
     }
 }

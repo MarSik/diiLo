@@ -80,13 +80,31 @@ fn main() -> anyhow::Result<()> {
                     app.reload();
                     needs_refresh = true;
                 }
-                Ok(AppEvents::ReloadDataSelect(name)) => {
+                Ok(AppEvents::ReloadDataSelectByName(name)) => {
                     app.reload();
                     app.select_item(&name);
                     needs_refresh = true;
                 }
-                Ok(AppEvents::Select(name)) => {
+                Ok(AppEvents::SelectByName(name)) => {
                     app.select_item(&name);
+                    needs_refresh = true;
+                }
+                Ok(AppEvents::ReloadDataSelectByDisplayId(display_id, name)) => {
+                    app.reload();
+                    app.select_item_by_display_id(display_id, &name);
+                    needs_refresh = true;
+                }
+                Ok(AppEvents::SelectByDisplayId(display_id, name)) => {
+                    app.select_item_by_display_id(display_id, &name);
+                    needs_refresh = true;
+                }
+                Ok(AppEvents::ReloadDataSelectByPartId(part_id, name)) => {
+                    app.reload();
+                    app.select_item_by_part_id(&part_id, &name);
+                    needs_refresh = true;
+                }
+                Ok(AppEvents::SelectByPartId(part_id, name)) => {
+                    app.select_item_by_part_id(&part_id, &name);
                     needs_refresh = true;
                 }
                 Ok(AppEvents::Quit) => break,

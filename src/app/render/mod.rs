@@ -747,15 +747,30 @@ impl App {
         let mut table_state = TableState::new();
         let mut scrollbar_state = ScrollbarState::new(self.view.create_hints.len());
 
-        let (hints_highlight_style, hints_hl_symbol) =
-            if let CreateMode::Hint(hint) = self.view.create_idx {
-                table_state = table_state.with_selected(hint);
-                scrollbar_state = scrollbar_state.position(hint);
-                (Style::new().on_yellow(), "> ")
-            } else {
-                scrollbar_state = scrollbar_state.position(0);
-                (Style::default(), "  ")
-            };
+        let (hints_highlight_style, hints_hl_symbol) = if let CreateMode::Hint(hint) =
+            self.view.create_idx
+        {
+            table_state = table_state.with_selected(hint);
+            scrollbar_state = scrollbar_state.position(hint);
+            (Style::new().on_yellow(), "> ")
+        } else if self
+            .view
+            .create_hints
+            .first()
+            .map(|hint| {
+                hint.name.to_lowercase() == self.view.create_name.to_string().trim().to_lowercase()
+            })
+            .unwrap_or(false)
+        {
+            // The input matches the first hint exactly, show that to the user
+            table_state = table_state.with_selected(0);
+            scrollbar_state = scrollbar_state.position(0);
+            (Style::new().on_blue(), "= ")
+        } else {
+            scrollbar_state = scrollbar_state.position(0);
+            table_state = table_state.with_selected(0);
+            (Style::default(), "  ")
+        };
 
         let table_area =
             Layout::horizontal([Constraint::Min(1), Constraint::Length(2)]).split(block_area[2]);
