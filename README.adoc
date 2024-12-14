@@ -12,7 +12,8 @@ CAUTION: *This project is not production ready, use at your own risk and backup 
 * The intended use case for this tool is a small electronic lab, a RC modeller's workshop or similar.
 * Few hundreds to thousands of items in dozen locations or boxes.
 * A workflow where the tool just helps with finding the right piece for the current project at hand and the inventory tracking accuracy is secondary to the ease of use.
-* Updating the digital database happens in bulk, usually at the end of a session based on paper notes. Part counts can get a bit out of sync, but should be easy to fix.
+* Updating the digital database happens in bulk, usually at the end of a session based on paper notes. Data entry must be as streamlined as possible.
+* Part counts that get a out of sync due to sloppy book keeping should be easy to fix.
 
 For these reasons I defined the cornerstones of the project that should be used when in doubt about a feature or implementation:
 
