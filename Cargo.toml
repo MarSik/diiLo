@@ -5,7 +5,7 @@ keywords = ["inventory", "manager", "console"]
 categories = ["command-line-utilities"]
 description = "Dual panel inventory manager for console"
 license = "AGPL-3.0-or-later"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 default-run = "diilo"
 
