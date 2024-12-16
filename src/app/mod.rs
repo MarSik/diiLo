@@ -117,6 +117,8 @@ pub enum ActionVariant {
     RequirePartInProjectLocal,
     ForceCount,
     ForceCountLocal,
+    ForceCountProject,
+    ForceCountProjectLocal,
     Delete,
     SplitLocal,
 }
@@ -143,6 +145,8 @@ impl ActionVariant {
             ActionVariant::RequirePartInProjectLocal => "require",
             ActionVariant::ForceCount => "force count",
             ActionVariant::ForceCountLocal => "force count",
+            ActionVariant::ForceCountProject => "force count",
+            ActionVariant::ForceCountProjectLocal => "force count",
             ActionVariant::Delete => "delete",
             ActionVariant::SplitLocal => "split",
         }
@@ -158,6 +162,8 @@ impl ActionVariant {
                 | ActionVariant::ClonePart
                 | ActionVariant::CreatePart
                 | ActionVariant::ForceCountLocal
+                | ActionVariant::ForceCountProject
+                | ActionVariant::ForceCountProjectLocal
                 | ActionVariant::SplitLocal
         )
     }
@@ -184,6 +190,8 @@ impl ActionVariant {
             ActionVariant::Delete => "Delete part",
             ActionVariant::ForceCount => "Force count",
             ActionVariant::ForceCountLocal => "Force count",
+            ActionVariant::ForceCountProject => "Force count",
+            ActionVariant::ForceCountProjectLocal => "Force count",
             ActionVariant::SplitLocal => "Split piece",
         }
     }
@@ -210,6 +218,8 @@ impl ActionVariant {
             ActionVariant::Delete => false,
             ActionVariant::ForceCount => true,
             ActionVariant::ForceCountLocal => true,
+            ActionVariant::ForceCountProject => true,
+            ActionVariant::ForceCountProjectLocal => true,
             ActionVariant::SplitLocal => true,
         }
     }
@@ -290,6 +300,7 @@ impl App {
         match self.get_action_direction() {
             (PanelContent::PartsInLocation, _) => ActionVariant::ForceCountLocal,
             (PanelContent::LocationOfParts, _) => ActionVariant::ForceCountLocal,
+            (PanelContent::PartsInProjects, _) => ActionVariant::ForceCountProjectLocal,
             (_, _) => ActionVariant::None,
         }
     }
@@ -368,6 +379,9 @@ impl App {
 
             (PanelContent::Parts, PanelContent::Locations) => ActionVariant::ForceCount,
             (PanelContent::Parts, PanelContent::PartsInLocation) => ActionVariant::ForceCount,
+            (PanelContent::Parts, PanelContent::PartsInProjects) => {
+                ActionVariant::ForceCountProject
+            }
 
             (PanelContent::PartsWithLabels, PanelContent::Locations) => ActionVariant::ForceCount,
             (PanelContent::PartsWithLabels, PanelContent::PartsInLocation) => {
@@ -481,6 +495,12 @@ impl App {
                     }
                     ActionVariant::ForceCountLocal => {
                         self.finish_action_force_count_local(source.as_ref())
+                    }
+                    ActionVariant::ForceCountProject => {
+                        self.finish_action_force_count_project(source, destination)
+                    }
+                    ActionVariant::ForceCountProjectLocal => {
+                        self.finish_action_force_count_project_local(source.as_ref())
                     }
                     ActionVariant::SplitLocal => self.finish_action_split_local(source.as_ref()),
 
@@ -704,6 +724,12 @@ impl App {
             }
             ActionVariant::ForceCountLocal => {
                 self.prepare_force_count_local()?;
+            }
+            ActionVariant::ForceCountProject => {
+                self.prepare_force_count_project()?;
+            }
+            ActionVariant::ForceCountProjectLocal => {
+                self.prepare_force_count_project_local()?;
             }
             ActionVariant::SplitLocal => {
                 self.prepare_split_local()?;

@@ -136,12 +136,19 @@ impl From<&LedgerEntryDto> for LedgerEntry {
                         .into(),
                 ),
             }
-        } else if val.cmd_set {
+        } else if val.cmd_set && val.location_id.is_some() {
             LedgerEntry {
                 t,
                 count: val.count,
                 part: part_id,
                 ev: LedgerEvent::ForceCount(val.location_id.clone().unwrap().into()),
+            }
+        } else if val.cmd_set && val.project_id.is_some() {
+            LedgerEntry {
+                t,
+                count: val.count,
+                part: part_id,
+                ev: LedgerEvent::ForceCountProject(val.project_id.clone().unwrap().into()),
             }
         } else {
             LedgerEntry {
@@ -204,6 +211,16 @@ impl From<&LedgerEntry> for LedgerEntryDto {
                 piece_size: entry.part.piece_size_option(),
                 part_id: entry.part.part_type().to_string(),
                 location_id: Some(location.part_type().to_string()),
+                cmd_set: true,
+                ..Default::default()
+            },
+            LedgerEvent::ForceCountProject(project) => LedgerEntryDto {
+                time: Some(entry.t.to_rfc3339()),
+                transaction: None,
+                count: entry.count,
+                piece_size: entry.part.piece_size_option(),
+                part_id: entry.part.part_type().to_string(),
+                project_id: Some(project.part_type().to_string()),
                 cmd_set: true,
                 ..Default::default()
             },

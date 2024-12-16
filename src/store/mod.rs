@@ -399,6 +399,34 @@ impl Store {
                     count.required(),
                 ));
             }
+            LedgerEvent::ForceCountProject(project) => {
+                let count = self.count_cache.get_count(&store_part_id, project);
+                let (new_added, new_removed) = if (e.count as isize) > count.count() {
+                    (count.removed() + e.count, count.removed())
+                } else {
+                    (count.added(), count.added().saturating_sub(e.count))
+                };
+
+                // TODO Handle partial count for Pieces
+
+                // Remove the old entry, the piece might have changed its size
+                self.project_cache.set_count(CountCacheEntry::new(
+                    PartId::clone(source_part_id),
+                    LocationId::clone(project),
+                    0,
+                    0,
+                    0,
+                ));
+
+                // Set new values
+                self.project_cache.set_count(CountCacheEntry::new(
+                    store_part_id,
+                    LocationId::clone(project),
+                    new_added,
+                    new_removed,
+                    count.required(),
+                ));
+            }
             LedgerEvent::RequireIn(location) => {
                 let count = self.count_cache.get_count(source_part_id, location);
                 self.count_cache

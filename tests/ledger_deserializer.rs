@@ -90,3 +90,52 @@ fn test_explicit_pieces_forcecount_w_conversion() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_project_forcecount() -> anyhow::Result<()> {
+    let store_path = TempDir::new("test")?;
+    let mut store = Store::new(store_path.into_path())?;
+    populate_store(&mut store)?;
+
+    let f = BufReader::new(
+        "2024-12-10T10:00:00Z,count=10,part=test-part,correct,project=project-x\n".as_bytes(),
+    );
+    store
+        .load_events_from_buf(f)?
+        .iter()
+        .for_each(|ev| store.update_count_cache(ev));
+
+    let mut count = store.count_by_project_type(&"project-x".into());
+    let sum = count.sum();
+    sort_count_predictably(&mut count);
+
+    assert_eq!(sum.added, 10, "should have added ten items to cache");
+    assert_eq!(sum.removed, 0, "should have empty remove count");
+    assert_eq!(sum.required, 0, "should have empty required count");
+
+    assert_eq!(count.len(), 1, "part should be in one project only");
+    assert_eq!(
+        count.first().unwrap().part().part_type(),
+        &"test-part".into(),
+        "should be test pieces"
+    );
+    assert_eq!(
+        count.first().unwrap().part().piece_size_option(),
+        None,
+        "should not contain piece size data"
+    );
+    assert_eq!(
+        count.first().unwrap().location().part_type().to_string(),
+        "project-x".to_string(),
+        "should be stored in project-x"
+    );
+
+    let count = store.count_by_part_type(&"test-part".into());
+    assert_eq!(
+        count.len(),
+        0,
+        "force count for project stores nothing in locations"
+    );
+
+    Ok(())
+}

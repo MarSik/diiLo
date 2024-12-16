@@ -376,6 +376,7 @@ pub enum LedgerEvent {
     TakeFrom(LocationId),
     StoreTo(LocationId),
     ForceCount(LocationId),
+    ForceCountProject(LocationId),
     RequireIn(LocationId),
     OrderFrom(SourceId),
     CancelOrderFrom(SourceId),

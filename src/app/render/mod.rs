@@ -584,6 +584,8 @@ impl App {
             super::ActionVariant::Delete => render_icons::DELETE,
             super::ActionVariant::ForceCount => render_icons::FORCE_COUNT,
             super::ActionVariant::ForceCountLocal => render_icons::FORCE_COUNT,
+            super::ActionVariant::ForceCountProject => render_icons::FORCE_COUNT,
+            super::ActionVariant::ForceCountProjectLocal => render_icons::FORCE_COUNT,
             super::ActionVariant::SplitLocal => render_icons::SPLIT,
         };
 
