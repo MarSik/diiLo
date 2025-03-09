@@ -33,7 +33,7 @@ impl PanelLocationSelection {
                     .types
                     .contains(&crate::store::ObjectType::Location)
             })
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_location_type(p_id);
                 let count = counts.sum();
@@ -171,7 +171,7 @@ impl PanelLocationPartsSelection {
         store
             .parts_by_location(&self.location_id)
             .iter()
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > 0 {
                     format!("(> {}) {}", count.required(), count.count())

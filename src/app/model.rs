@@ -105,7 +105,7 @@ pub(super) trait PanelData: std::fmt::Debug {
     fn item_idx_by_part_id(&self, part_id: &PartId, store: &Store) -> Option<usize> {
         for i in 0..self.len(store) {
             let item = self.item(i, store);
-            if item.id.as_ref().map_or(false, |id| id == part_id) {
+            if item.id.as_ref() == Some(part_id) {
                 return Some(i);
             }
         }

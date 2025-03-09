@@ -29,7 +29,7 @@ impl PanelLabelSelection {
             .filter(|i| {
                 self.query
                     .as_ref()
-                    .map_or(true, |q| i.0.contains(q.current_query().as_str()))
+                    .is_none_or(|q| i.0.contains(q.current_query().as_str()))
             })
             .map(|(label_key, count)| {
                 PanelItem::new(
@@ -172,7 +172,7 @@ impl PanelLabelValueSelection {
             .filter(|i| {
                 self.query
                     .as_ref()
-                    .map_or(true, |q| i.0.contains(q.current_query().as_str()))
+                    .is_none_or(|q| i.0.contains(q.current_query().as_str()))
             })
             .map(|(label_value, count)| {
                 PanelItem::new(
@@ -319,7 +319,7 @@ impl PanelPartByLabelSelection {
         store
             .parts_by_label(&self.label_key, &self.label_value)
             .iter()
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p)))
             .map(|p| {
                 let c = store.count_by_part_type(&p.id).sum();
                 PanelItem::new(

@@ -31,7 +31,7 @@ impl PanelPartSelection {
             .all_objects()
             .iter()
             .filter(|p| p.1.metadata.types.contains(&crate::store::ObjectType::Part))
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_part_type(p_id);
                 let count = counts.sum();

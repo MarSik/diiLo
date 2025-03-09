@@ -33,7 +33,7 @@ impl PanelProjectSelection {
                     .types
                     .contains(&crate::store::ObjectType::Project)
             })
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_project_type(p_id);
                 let sum = counts.sum();
@@ -172,7 +172,7 @@ impl PanelProjectPartsSelection {
         store
             .parts_by_project(&self.project_id)
             .iter()
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > 0 {
                     format!("(= {}) {}", count.required(), count.count())

@@ -33,7 +33,7 @@ impl PanelSourceSelection {
                     .types
                     .contains(&crate::store::ObjectType::Source)
             })
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.1)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.1)))
             .map(|(p_id, p)| {
                 let counts = store.count_by_source(p_id);
                 let count = counts.sum();
@@ -298,7 +298,7 @@ impl PanelPartFromSourcesSelection {
         store
             .parts_by_source(&self.source_id)
             .iter()
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = if count.required() > count.added() {
                     format!(
@@ -454,7 +454,7 @@ impl PanelOrderedFromSourcesSelection {
             .parts_by_source(&self.source_id)
             .iter()
             .filter(|(_, count)| count.show_empty() || (count.required() > count.added()))
-            .filter(|p| self.query.as_ref().map_or(true, |q| q.matches(p.0)))
+            .filter(|p| self.query.as_ref().is_none_or(|q| q.matches(p.0)))
             .map(|(p, count)| {
                 let data = count.required().saturating_sub(count.added()).to_string();
 
