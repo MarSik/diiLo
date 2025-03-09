@@ -332,6 +332,7 @@ impl App {
 
             (p, PanelContent::PartsInProjects) if p.contains_parts() => ActionVariant::RequirePart,
             (p, PanelContent::Projects) if p.contains_parts() => ActionVariant::RequirePart,
+            (PanelContent::LocationOfParts, PanelContent::Projects) => ActionVariant::RequirePart,
 
             (PanelContent::Parts, _) => ActionVariant::ClonePart,
             (PanelContent::Projects, _) => ActionVariant::ClonePart,
@@ -374,6 +375,10 @@ impl App {
 
             (PanelContent::PartsInLocation, PanelContent::Projects) => ActionVariant::SolderPart,
             (PanelContent::PartsInLocation, PanelContent::PartsInProjects) => {
+                ActionVariant::SolderPart
+            }
+            (PanelContent::LocationOfParts, PanelContent::Projects) => ActionVariant::SolderPart,
+            (PanelContent::LocationOfParts, PanelContent::PartsInProjects) => {
                 ActionVariant::SolderPart
             }
 
