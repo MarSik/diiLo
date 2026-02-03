@@ -5,15 +5,15 @@ keywords = ["inventory", "manager", "console"]
 categories = ["command-line-utilities"]
 description = "Dual panel inventory manager for console"
 license = "AGPL-3.0-or-later"
-version = "0.2.3"
-edition = "2021"
+version = "0.2.4"
+edition = "2024"
 default-run = "diilo"
 
 [dependencies]
 anyhow = "^1"
 chrono = "0.4.38"
 crossbeam-channel = "0.5.13"
-crossterm = {version="0.28.1", features=["event-stream"]}
+crossterm = { version = "0.28.1", features = ["event-stream"] }
 csv = "1.3.0"
 env_logger = "0.11.5"
 futures = "0.3.31"
@@ -23,23 +23,19 @@ log = "0.4.22"
 multimap = "0.10.0"
 num = "0.4.3"
 parse_datetime = "0.6.0"
-ratatui = "0.29.0"
+ratatui = "0.30.0"
 regex = "1.11.1"
 serde = "1.0.214"
 serde-keyvalue = "0.1.0"
 serde_yaml = "0.9.34"
-tempdir = "^0"
+tempfile = "3.24.0"
 thiserror = "2.0.3"
-tui-big-text = "0.7.0"
-tui-input = "0.11.0"
+tui-big-text = "0.8"
+tui-input = "0.15.0"
 walkdir = "2"
 
 [build-dependencies]
 chrono = "0.4.38"
-
-[patch.crates-io]
-# Remove once https://github.com/ratatui/ratatui/pull/1541 is released
-ratatui = { git = 'https://github.com/MarSik/ratatui.git', branch = 'fix-0.29-dim' }
 
 [profile.release]
 debug = 1

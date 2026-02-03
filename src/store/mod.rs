@@ -267,11 +267,11 @@ impl Store {
 
         let dir = std::fs::read_dir(Path::new(&self.basepath).join("ledger"))?;
         for f in dir.flatten() {
-            if let Ok(ft) = f.file_type() {
-                if ft.is_file() {
-                    let events = self.load_events_from_file(f.path().to_str().unwrap())?;
-                    output.extend(events);
-                }
+            if let Ok(ft) = f.file_type()
+                && ft.is_file()
+            {
+                let events = self.load_events_from_file(f.path().to_str().unwrap())?;
+                output.extend(events);
             }
         }
 

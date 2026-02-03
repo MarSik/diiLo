@@ -1,15 +1,15 @@
 use std::io::BufReader;
 
-use diilo::store::{cache::CountCacheSum, Store};
-use tempdir::TempDir;
+use diilo::store::{Store, cache::CountCacheSum};
+use tempfile::TempDir;
 use testutils::{populate_store, sort_count_predictably};
 
 mod testutils;
 
 #[test]
 fn test_explicit_pieces_forcecount() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let f = BufReader::new(
@@ -51,8 +51,8 @@ fn test_explicit_pieces_forcecount() -> anyhow::Result<()> {
 
 #[test]
 fn test_explicit_pieces_forcecount_w_conversion() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let f = BufReader::new(
@@ -93,8 +93,8 @@ fn test_explicit_pieces_forcecount_w_conversion() -> anyhow::Result<()> {
 
 #[test]
 fn test_project_forcecount() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let f = BufReader::new(

@@ -1,6 +1,6 @@
 use crate::{
     app::model::PanelItem,
-    store::{cache::CountCacheSum, filter::Query, LocationId, PartId, Store},
+    store::{LocationId, PartId, Store, cache::CountCacheSum, filter::Query},
 };
 
 use super::{

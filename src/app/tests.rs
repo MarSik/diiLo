@@ -1,11 +1,11 @@
 use super::*;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 #[test]
 fn test_make_part_id() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
+    let store_path = TempDir::new()?;
 
-    let store = Store::new(store_path.into_path())?;
+    let store = Store::new(store_path.path().to_path_buf())?;
     let mut app = App::new(store)?;
 
     let part_id = app.make_new_type_id("test");

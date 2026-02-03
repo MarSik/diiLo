@@ -1,9 +1,9 @@
 use crate::store::PartId;
 
 use super::{
+    ActionVariant, App, AppEvents,
     errs::AppError,
     model::{ActionDescriptor, PanelItem},
-    ActionVariant, App, AppEvents,
 };
 
 impl App {

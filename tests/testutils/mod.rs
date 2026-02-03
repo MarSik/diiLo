@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, path::PathBuf};
 
-use diilo::store::{cache::CountCacheEntry, Store};
+use diilo::store::{Store, cache::CountCacheEntry};
 
 pub fn populate_store(store: &mut Store) -> anyhow::Result<()> {
     let part = Store::load_part_from_file(

@@ -1,4 +1,4 @@
-use crate::store::{cache::CountCacheSum, filter::Query, PartTypeId, Store};
+use crate::store::{PartTypeId, Store, cache::CountCacheSum, filter::Query};
 
 use super::{
     caching_panel_data::{CachingPanelData, ParentPanel},

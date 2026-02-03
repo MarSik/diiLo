@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::symbols::border;
 use ratatui::text::{Line, Span, Text};
@@ -11,6 +11,7 @@ use ratatui::widgets::{
 use render_icons::DrawFixed6x3Icon;
 use tui_big_text::{BigText, PixelSize};
 
+use super::App;
 use super::kbd::EscMode;
 use super::model::PanelContent::{
     self, LabelKeys, Labels, LocationOfParts, Locations, Parts, PartsFromSources, PartsInLocation,
@@ -18,7 +19,6 @@ use super::model::PanelContent::{
 };
 use super::model::PanelData;
 use super::view::{ActivePanel, CreateMode, DialogState, Hot, PanelState, ViewLayout};
-use super::App;
 
 mod filter;
 mod render_icons;
@@ -127,69 +127,69 @@ impl Widget for &App {
             let item = self
                 .get_active_panel_data()
                 .item(self.view.get_active_panel_selection(), &self.store);
-            if let Some(item_id) = item.id {
-                if let Some(part) = self.store.part_by_id(item_id.part_type()) {
-                    let mut content: Vec<Line> = vec![];
-                    content.push(format!("id: {}", part.id).into());
-                    content.push(format!("name: {}", part.metadata.name).into());
-                    content.push(part.metadata.summary.to_string().into());
-                    content.push("".into());
-                    for l in &part.metadata.labels {
-                        for v in l.1 {
-                            content.push(format!("{}: {}", l.0, v).into());
-                        }
+            if let Some(item_id) = item.id
+                && let Some(part) = self.store.part_by_id(item_id.part_type())
+            {
+                let mut content: Vec<Line> = vec![];
+                content.push(format!("id: {}", part.id).into());
+                content.push(format!("name: {}", part.metadata.name).into());
+                content.push(part.metadata.summary.to_string().into());
+                content.push("".into());
+                for l in &part.metadata.labels {
+                    for v in l.1 {
+                        content.push(format!("{}: {}", l.0, v).into());
                     }
-                    content.push("".into());
-
-                    // TODO nicer parser for Markdown
-                    for l in part.content.split('\n') {
-                        content.push(l.into());
-                    }
-
-                    content.push("".into());
-                    content.push("--".into());
-                    content.push(format!("path: {:?}", part.filename).into());
-
-                    let block = Block::bordered()
-                        .title(part.metadata.name.as_str())
-                        .title_bottom(
-                            part.metadata
-                                .types
-                                .iter()
-                                .map(|v| format!("{:?}", v))
-                                .join(", "),
-                        )
-                        .border_set(border::PLAIN);
-
-                    let block = if self.view.active_info {
-                        block.border_style(Color::Yellow)
-                    } else {
-                        block
-                    };
-
-                    let inner = block.inner(area);
-                    block.render(area, buf);
-
-                    let cols = Layout::horizontal([Constraint::Min(1), Constraint::Length(1)])
-                        .split(inner);
-
-                    let mut scrollbar_state =
-                        ScrollbarState::new(content.len()).position(self.view.info_scroll);
-                    let scrollbar =
-                        Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
-                    let scrollbar = if self.view.active_info {
-                        scrollbar.style(Style::new().yellow())
-                    } else {
-                        scrollbar
-                    };
-
-                    scrollbar.render(cols[1], buf, &mut scrollbar_state);
-
-                    Paragraph::new(content)
-                        .wrap(Wrap { trim: false })
-                        .scroll((self.view.info_scroll as u16, 0))
-                        .render(cols[0], buf);
                 }
+                content.push("".into());
+
+                // TODO nicer parser for Markdown
+                for l in part.content.split('\n') {
+                    content.push(l.into());
+                }
+
+                content.push("".into());
+                content.push("--".into());
+                content.push(format!("path: {:?}", part.filename).into());
+
+                let block = Block::bordered()
+                    .title(part.metadata.name.as_str())
+                    .title_bottom(
+                        part.metadata
+                            .types
+                            .iter()
+                            .map(|v| format!("{:?}", v))
+                            .join(", "),
+                    )
+                    .border_set(border::PLAIN);
+
+                let block = if self.view.active_info {
+                    block.border_style(Color::Yellow)
+                } else {
+                    block
+                };
+
+                let inner = block.inner(area);
+                block.render(area, buf);
+
+                let cols =
+                    Layout::horizontal([Constraint::Min(1), Constraint::Length(1)]).split(inner);
+
+                let mut scrollbar_state =
+                    ScrollbarState::new(content.len()).position(self.view.info_scroll);
+                let scrollbar =
+                    Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
+                let scrollbar = if self.view.active_info {
+                    scrollbar.style(Style::new().yellow())
+                } else {
+                    scrollbar
+                };
+
+                scrollbar.render(cols[1], buf, &mut scrollbar_state);
+
+                Paragraph::new(content)
+                    .wrap(Wrap { trim: false })
+                    .scroll((self.view.info_scroll as u16, 0))
+                    .render(cols[0], buf);
             }
         }
 
@@ -594,9 +594,9 @@ impl App {
             BigText::builder()
                 .pixel_size(PixelSize::Full)
                 .style(Style::new().blue())
-                .alignment(Alignment::Center)
+                .centered()
                 .lines(vec![
-                    format!("{}", self.view.action_count_dialog_count).into()
+                    format!("{}", self.view.action_count_dialog_count).into(),
                 ])
                 .build()
                 .render(block_area[2], buf);
@@ -612,12 +612,13 @@ impl App {
 
         if let Some(obj) = self.view.action_count_dialog_source.as_ref() {
             Paragraph::new(vec![
-                Line::from(vec![self
-                    .view
-                    .action_count_dialog_action
-                    .description()
-                    .blue()
-                    .bold()]),
+                Line::from(vec![
+                    self.view
+                        .action_count_dialog_action
+                        .description()
+                        .blue()
+                        .bold(),
+                ]),
                 Line::from(obj.name.as_str().black().bold()),
                 Line::from(obj.summary.as_str().dark_gray()),
             ])

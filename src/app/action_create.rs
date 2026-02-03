@@ -4,7 +4,7 @@ use chrono::Local;
 
 use crate::store::{LedgerEntry, LedgerEvent, Part, PartId, PartMetadata, ProjectId};
 
-use super::{errs::AppError, model::PanelContent, view::CreateMode, App, AppEvents};
+use super::{App, AppEvents, errs::AppError, model::PanelContent, view::CreateMode};
 
 impl App {
     pub(super) fn action_clone_part(&mut self) -> Result<AppEvents, AppError> {

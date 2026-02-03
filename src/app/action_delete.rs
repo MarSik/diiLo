@@ -2,13 +2,13 @@ use std::rc::Rc;
 
 use chrono::Local;
 
-use crate::store::{cache::CountCacheSum, LedgerEntry, LedgerEvent, PartId};
+use crate::store::{LedgerEntry, LedgerEvent, PartId, cache::CountCacheSum};
 
 use super::{
+    App, AppEvents,
     errs::AppError,
     model::{ActionDescriptor, PanelContent},
     view::DialogState,
-    App, AppEvents,
 };
 
 impl App {

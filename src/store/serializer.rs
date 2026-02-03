@@ -5,9 +5,9 @@ use std::io::Write;
 
 use multimap::MultiMap;
 use serde::{
+    Deserializer, Serializer,
     de::Visitor,
     ser::{self, SerializeSeq},
-    Deserializer, Serializer,
 };
 
 #[derive(Debug)]

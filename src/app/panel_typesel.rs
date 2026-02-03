@@ -1,4 +1,4 @@
-use crate::store::{filter::Query, Store};
+use crate::store::{Store, filter::Query};
 
 use super::{
     model::{ActionDescriptor, EnterAction, FilterError, PanelContent, PanelData, PanelItem},

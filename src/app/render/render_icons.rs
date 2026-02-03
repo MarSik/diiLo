@@ -25,7 +25,7 @@ impl Widget for DrawFixed6x3Icon {
 
         for r in 0..area.height.min(3) {
             for c in 0..area.width.min(6) {
-                let row = self.0 .0[r as usize];
+                let row = self.0.0[r as usize];
                 // Handle multibyte characters properly
                 let mut row_it = row.char_indices().skip(c as usize);
                 // Get the beginning of the multibyte symbol

@@ -3,9 +3,9 @@ use tui_input::{Input, InputRequest};
 use crate::store::PartId;
 
 use super::{
+    ActionVariant,
     kbd::EscMode,
     model::{PanelItem, PanelItemDisplayId},
-    ActionVariant,
 };
 
 #[derive(Debug, Default)]

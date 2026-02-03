@@ -51,11 +51,7 @@ pub fn panel_reload(panel: &mut Box<dyn PanelData>, item_idx: usize, store: &Sto
     // The item_idx can return an id after the last element.
     // Make sure we catch that.
     let max = panel.len(store).saturating_sub(1);
-    if new_idx > max {
-        max
-    } else {
-        new_idx
-    }
+    if new_idx > max { max } else { new_idx }
 }
 
 #[derive(Debug)]
@@ -71,10 +67,10 @@ impl CachingPanelData {
     }
 
     fn load_cache<L: Fn() -> Vec<PanelItem>>(&self, loader: L) {
-        if let Ok(cache) = self.cached.try_borrow() {
-            if cache.is_some() {
-                return;
-            }
+        if let Ok(cache) = self.cached.try_borrow()
+            && cache.is_some()
+        {
+            return;
         }
 
         let mut parts: Vec<PanelItem> = loader();

@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::store::{filter::Query, LocationId, PartId, SourceId, Store};
+use crate::store::{LocationId, PartId, SourceId, Store, filter::Query};
 
 use super::panel_typesel::PanelTypeSelection;
 

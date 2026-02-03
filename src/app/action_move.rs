@@ -2,7 +2,7 @@ use chrono::Local;
 
 use crate::store::{LedgerEntry, LedgerEvent};
 
-use super::{errs::AppError, model::ActionDescriptor, App, AppEvents};
+use super::{App, AppEvents, errs::AppError, model::ActionDescriptor};
 
 impl App {
     pub(super) fn finish_action_move(

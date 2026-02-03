@@ -5,10 +5,10 @@ use std::{env, path::PathBuf};
 
 use crossterm::event::{Event, EventStream, KeyEventKind};
 use diilo::app::{App, AppEvents};
-use diilo::store::{default_store_path, Store};
-use futures::{executor::block_on, select, FutureExt, StreamExt};
+use diilo::store::{Store, default_store_path};
+use futures::{FutureExt, StreamExt, executor::block_on, select};
 use log::{debug, error, info, trace};
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -157,7 +157,7 @@ fn open_in_editor(app: &mut App, part_id: &std::rc::Rc<str>) -> anyhow::Result<S
 
     let editor = env::var("EDITOR").unwrap_or("vi".to_string());
 
-    let temp_dir = TempDir::new("diilo-edit")?;
+    let temp_dir = TempDir::new()?;
 
     let mut temp_file = temp_dir.path().join(part.id.to_string());
     temp_file.set_extension("md");

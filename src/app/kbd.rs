@@ -1,9 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{
+    App, AppEvents,
     errs::AppError,
     view::{ActivePanel, CreateMode, DialogState, Hot, ViewLayout},
-    App, AppEvents,
 };
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -51,7 +51,7 @@ impl App {
 
             KeyCode::F(5) => return self.press_f5(),
             KeyCode::F(6) if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-                return self.press_ctrl_f6()
+                return self.press_ctrl_f6();
             }
             KeyCode::F(6) => return self.press_f6(),
 
@@ -59,7 +59,7 @@ impl App {
             KeyCode::F(8) => return self.press_f8(),
 
             KeyCode::F(9) if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-                return self.press_ctrl_f9()
+                return self.press_ctrl_f9();
             }
             KeyCode::F(9) => return self.press_f9(),
 
@@ -105,7 +105,7 @@ impl App {
             KeyCode::Enter => return Ok(self.press_enter()),
             KeyCode::F(1) | KeyCode::Char('/') => self.open_filter_dialog(),
             KeyCode::Char('l') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
-                return Ok(AppEvents::FullRedraw)
+                return Ok(AppEvents::FullRedraw);
             }
             KeyCode::Char(c) => {
                 let val = self

@@ -21,5 +21,11 @@ then
     exit 1
 fi
 
+if ! cargo audit
+then
+    echo "There are security vulnerabilities."
+    exit 1
+fi
+
 exit 0
 

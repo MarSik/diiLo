@@ -2,7 +2,7 @@ use chrono::Local;
 
 use crate::store::{LedgerEntry, LedgerEvent, LocationId, PartId, ProjectId, SourceId};
 
-use super::{errs::AppError, model::ActionDescriptor, ActionVariant, App, AppEvents};
+use super::{ActionVariant, App, AppEvents, errs::AppError, model::ActionDescriptor};
 
 impl App {
     pub(super) fn finish_action_split_local(

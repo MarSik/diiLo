@@ -9,7 +9,7 @@ use tui_input::Input;
 use view::{ActivePanel, DialogState, View};
 
 use crate::store::{
-    filter::Query, types::CountTracking, Part, PartId, PartTypeId, SourceId, Store,
+    Part, PartId, PartTypeId, SourceId, Store, filter::Query, types::CountTracking,
 };
 
 mod action_create;
@@ -841,17 +841,16 @@ impl App {
             if let Some(ad) = self
                 .get_active_panel_data()
                 .actionable_objects(self.view.get_active_panel_selection(), &self.store)
+                && let Some(label_key) = ad.label_key()
             {
-                if let Some(label_key) = ad.label_key() {
-                    self.view.create_hints = self
-                        .store
-                        .all_label_values(label_key)
-                        .iter()
-                        .filter(|(v, _)| v.to_lowercase().starts_with(&query))
-                        .map(|(v, _)| PanelItem::new(v, None, "", "", Some(&v.into()), None))
-                        .collect();
-                    return;
-                }
+                self.view.create_hints = self
+                    .store
+                    .all_label_values(label_key)
+                    .iter()
+                    .filter(|(v, _)| v.to_lowercase().starts_with(&query))
+                    .map(|(v, _)| PanelItem::new(v, None, "", "", Some(&v.into()), None))
+                    .collect();
+                return;
             }
             self.view.create_hints = vec![];
             return;
@@ -1037,16 +1036,11 @@ impl App {
         }
         let query = query.unwrap();
 
-        let selected = if self.view.filter_selected.is_none() {
-            self.view.filter_selected = Some(
-                self.get_active_panel_data()
-                    .item(self.view.get_active_panel_selection(), &self.store)
-                    .display_id(),
-            );
-            self.view.filter_selected.as_ref().unwrap()
-        } else {
-            self.view.filter_selected.as_ref().unwrap()
-        };
+        let selected = self.view.filter_selected.unwrap_or(
+            self.get_active_panel_data()
+                .item(self.view.get_active_panel_selection(), &self.store)
+                .display_id(),
+        );
 
         match self.view.active {
             ActivePanel::PanelA => {
@@ -1070,7 +1064,7 @@ impl App {
                     .item(self.view.panel_a.selected, &self.store)
                     .name
                     .clone();
-                AppEvents::SelectByDisplayId(*selected, name)
+                AppEvents::SelectByDisplayId(selected, name)
             }
             ActivePanel::PanelB => {
                 // Replacing a non-copy structure member in a mutable self requires a workaround
@@ -1093,7 +1087,7 @@ impl App {
                     .item(self.view.panel_b.selected, &self.store)
                     .name
                     .clone();
-                AppEvents::SelectByDisplayId(*selected, name)
+                AppEvents::SelectByDisplayId(selected, name)
             }
         }
     }

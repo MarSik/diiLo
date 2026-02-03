@@ -6,13 +6,13 @@ use diilo::{
     store::Store,
 };
 use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget as _};
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 #[test]
 fn test_start_stop() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
+    let store_path = TempDir::new()?;
 
-    let store = Store::new(store_path.into_path())?;
+    let store = Store::new(store_path.path().to_path_buf())?;
     let mut app = App::new(store)?;
     app.full_reload()?;
 

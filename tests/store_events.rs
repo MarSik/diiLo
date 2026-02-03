@@ -5,16 +5,16 @@
 use std::path::PathBuf;
 
 use chrono::Local;
-use diilo::store::{cache::CountCacheSum, LedgerEntry, LedgerEvent, PartId, Store};
-use tempdir::TempDir;
+use diilo::store::{LedgerEntry, LedgerEvent, PartId, Store, cache::CountCacheSum};
+use tempfile::TempDir;
 use testutils::{populate_store, sort_count_predictably};
 
 mod testutils;
 
 #[test]
 fn test_basic_delivery() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -50,8 +50,8 @@ fn test_basic_delivery() -> anyhow::Result<()> {
 
 #[test]
 fn test_basic_delivery_dual() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -96,8 +96,8 @@ fn test_basic_delivery_dual() -> anyhow::Result<()> {
 
 #[test]
 fn test_explicit_pieces_delivery() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -138,8 +138,8 @@ fn test_explicit_pieces_delivery() -> anyhow::Result<()> {
 
 #[test]
 fn test_explicit_pieces_forcecount() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -180,8 +180,8 @@ fn test_explicit_pieces_forcecount() -> anyhow::Result<()> {
 
 #[test]
 fn test_explicit_pieces_forcecount_w_conversion() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -222,8 +222,8 @@ fn test_explicit_pieces_forcecount_w_conversion() -> anyhow::Result<()> {
 
 #[test]
 fn test_differently_sized_pieces_delivery() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -293,8 +293,8 @@ fn test_differently_sized_pieces_delivery() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_piece_move() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -379,8 +379,8 @@ fn test_partial_piece_move() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_piece_move_double() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -485,8 +485,8 @@ fn test_partial_piece_move_double() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_piece_solder() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -580,8 +580,8 @@ fn test_partial_piece_solder() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_piece_solder_unsolder() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -709,8 +709,8 @@ fn test_partial_piece_solder_unsolder() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_part_solder_unsolder() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -819,8 +819,8 @@ fn test_partial_part_solder_unsolder() -> anyhow::Result<()> {
 
 #[test]
 fn test_partial_piece_split_move() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -905,8 +905,8 @@ fn test_partial_piece_split_move() -> anyhow::Result<()> {
 
 #[test]
 fn test_piece_delivery_w_id_conversion() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
@@ -948,8 +948,8 @@ fn test_piece_delivery_w_id_conversion() -> anyhow::Result<()> {
 
 #[test]
 fn test_piece_move_w_id_conversion() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     // Simulate a change of part tracking from simple to pieces
@@ -1051,8 +1051,8 @@ fn test_piece_move_w_id_conversion() -> anyhow::Result<()> {
 
 #[test]
 fn test_piece_move_w_id_conversion_to_simple() -> anyhow::Result<()> {
-    let store_path = TempDir::new("test")?;
-    let mut store = Store::new(store_path.into_path())?;
+    let store_path = TempDir::new()?;
+    let mut store = Store::new(store_path.path().to_path_buf())?;
     populate_store(&mut store)?;
 
     let ev = LedgerEntry {
