@@ -309,6 +309,21 @@ impl App {
         match self.get_action_direction() {
             (PanelContent::PartsInLocation, _) => ActionVariant::SplitLocal,
             (PanelContent::LocationOfParts, _) => ActionVariant::SplitLocal,
+
+            (PanelContent::Parts, PanelContent::Locations) => ActionVariant::ForceCount,
+            (PanelContent::Parts, PanelContent::PartsInLocation) => ActionVariant::ForceCount,
+            (PanelContent::Parts, PanelContent::PartsInProjects) => {
+                ActionVariant::ForceCountProject
+            }
+
+            (PanelContent::PartsWithLabels, PanelContent::Locations) => ActionVariant::ForceCount,
+            (PanelContent::PartsWithLabels, PanelContent::PartsInLocation) => {
+                ActionVariant::ForceCount
+            }
+            (PanelContent::PartsWithLabels, PanelContent::PartsInProjects) => {
+                ActionVariant::ForceCountProject
+            }
+
             (_, _) => ActionVariant::None,
         }
     }
@@ -380,17 +395,6 @@ impl App {
             (PanelContent::LocationOfParts, PanelContent::Projects) => ActionVariant::SolderPart,
             (PanelContent::LocationOfParts, PanelContent::PartsInProjects) => {
                 ActionVariant::SolderPart
-            }
-
-            (PanelContent::Parts, PanelContent::Locations) => ActionVariant::ForceCount,
-            (PanelContent::Parts, PanelContent::PartsInLocation) => ActionVariant::ForceCount,
-            (PanelContent::Parts, PanelContent::PartsInProjects) => {
-                ActionVariant::ForceCountProject
-            }
-
-            (PanelContent::PartsWithLabels, PanelContent::Locations) => ActionVariant::ForceCount,
-            (PanelContent::PartsWithLabels, PanelContent::PartsInLocation) => {
-                ActionVariant::ForceCount
             }
 
             (PanelContent::Parts, _) => ActionVariant::None,
