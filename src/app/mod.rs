@@ -110,6 +110,7 @@ pub enum ActionVariant {
     OrderPart,
     MovePart,
     DeliverPart,
+    ReturnPart,
     SolderPart,
     UnsolderPart,
     OrderPartLocal,
@@ -138,6 +139,7 @@ impl ActionVariant {
             ActionVariant::OrderPart => "order",
             ActionVariant::MovePart => "move",
             ActionVariant::DeliverPart => "deliver",
+            ActionVariant::ReturnPart => "return",
             ActionVariant::SolderPart => "solder",
             ActionVariant::UnsolderPart => "unsolder",
             ActionVariant::OrderPartLocal => "order",
@@ -182,6 +184,7 @@ impl ActionVariant {
             ActionVariant::OrderPart => "Order part",
             ActionVariant::MovePart => "Move part",
             ActionVariant::DeliverPart => "Deliver part",
+            ActionVariant::ReturnPart => "Return part",
             ActionVariant::SolderPart => "Solder part",
             ActionVariant::UnsolderPart => "Unsolder part",
             ActionVariant::OrderPartLocal => "Order part",
@@ -210,6 +213,7 @@ impl ActionVariant {
             ActionVariant::OrderPart => true,
             ActionVariant::MovePart => true,
             ActionVariant::DeliverPart => true,
+            ActionVariant::ReturnPart => true,
             ActionVariant::SolderPart => true,
             ActionVariant::UnsolderPart => true,
             ActionVariant::OrderPartLocal => true,
@@ -383,6 +387,15 @@ impl App {
                 ActionVariant::MovePart
             }
 
+            (PanelContent::PartsInLocation, PanelContent::Sources) => ActionVariant::ReturnPart,
+            (PanelContent::LocationOfParts, PanelContent::Sources) => ActionVariant::ReturnPart,
+            (PanelContent::PartsInLocation, PanelContent::PartsFromSources) => {
+                ActionVariant::ReturnPart
+            }
+            (PanelContent::LocationOfParts, PanelContent::PartsFromSources) => {
+                ActionVariant::ReturnPart
+            }
+
             (p, PanelContent::Labels) if p.contains_parts() => ActionVariant::RemovePartFromLabel,
             (p, PanelContent::PartsWithLabels) if p.contains_parts() => {
                 ActionVariant::RemovePartFromLabel
@@ -491,6 +504,7 @@ impl App {
                     ActionVariant::OrderPartLocal => self.finish_action_order(&source, &source),
                     ActionVariant::MovePart => self.finish_action_move(&source, &destination),
                     ActionVariant::DeliverPart => self.finish_action_deliver(&source, &destination),
+                    ActionVariant::ReturnPart => self.finish_action_return(&source, &destination),
                     ActionVariant::SolderPart => self.finish_action_solder(&source, &destination),
                     ActionVariant::UnsolderPart => self.finish_action_unsolder(source, destination),
                     ActionVariant::RequirePartInLocationLocal
@@ -606,6 +620,22 @@ impl App {
                     self.action_dialog_common_move(
                         action,
                         Some(self.panel_item_from_id(&dst)?),
+                        src.part().map_or(1, PartId::piece_size),
+                    );
+                } else {
+                    return Err(dst.unwrap_err());
+                }
+            }
+            ActionVariant::ReturnPart => {
+                let dst = self
+                    .get_inactive_panel_data()
+                    .actionable_objects(self.view.get_inactive_panel_selection(), &self.store)
+                    .and_then(|ad| ad.source().cloned())
+                    .ok_or(AppError::BadOperationContext);
+                if let Ok(dst) = dst {
+                    self.action_dialog_common_move(
+                        action,
+                        Some(self.panel_item_from_id(&dst.into())?),
                         src.part().map_or(1, PartId::piece_size),
                     );
                 } else {

@@ -57,6 +57,8 @@ pub const TRUCK: Fixed6x3Icon = Fixed6x3Icon(["    ▛▜", " ▙▄▄██", 
 
 pub const LABEL: Fixed6x3Icon = Fixed6x3Icon([" ▞▀▀▀▜", "▐    ▐", " ▚▄▄▄▟"]);
 
+pub const RETURN: Fixed6x3Icon = Fixed6x3Icon([" 🬞🬃   ", " 🬊🬒🬂🬂🬧", "  ▄▄▄▟"]);
+
 pub const LABEL_X: Fixed6x3Icon = Fixed6x3Icon([" ▞▜▀▛▜", "▐  █ ▐", " ▚▟▄▙▟"]);
 
 pub const SOLDER: Fixed6x3Icon = Fixed6x3Icon(["▚ ▐▌ ▞", " ▚▐▌▞ ", "▄▄▟▙▄▄"]);

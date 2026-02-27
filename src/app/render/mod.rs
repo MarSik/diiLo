@@ -576,6 +576,7 @@ impl App {
             super::ActionVariant::OrderPart => render_icons::ORDER,
             super::ActionVariant::MovePart => render_icons::MOVE,
             super::ActionVariant::DeliverPart => render_icons::TRUCK,
+            super::ActionVariant::ReturnPart => render_icons::RETURN,
             super::ActionVariant::SolderPart => render_icons::SOLDER,
             super::ActionVariant::UnsolderPart => render_icons::UNSOLDER,
             super::ActionVariant::OrderPartLocal => render_icons::ORDER,
